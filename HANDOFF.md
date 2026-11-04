@@ -45,7 +45,7 @@
   - `tests/test_config.py`、`tests/test_geometry.py`、`tests/test_flight.py`
   - `HANDOFF.md`（只寫本區塊「Codex 填寫」欄）
 - 必讀檔案：
-  - `docs/superpowers/plans/2026-11-04-splash-simulator.md` 第 1–35 行（Global Constraints、Review Focus）與第 74–135 行（Task 1 全文）
+  - `docs/superpowers/plans/2026-11-04-splash-simulator.md` 第 1–35 行（Global Constraints、Review Focus）與第 74–141 行（Task 1 全文）
   - `docs/superpowers/specs/2026-10-21-simulator-design.md` 第 39–47 行（限制）、第 71–78 行（5.1 飛行）、第 142–148 行（5.6 設定檢查）、第 160–163 行（驗收 1）
   - `~/.claude/policies/testing-policy.md`（TDD 原則）
 - 設計約束摘要（索引；原文仍以上列檔案為準）：
@@ -53,9 +53,10 @@
   - 相依只能是 numpy、scipy、opencv-python-headless、pydantic>=2、pyyaml，dev 為 pytest；本 Task 一次宣告完，`requires-python = ">=3.11"`（來源：plan:15-16）。
   - 座標：A4 左下角原點，x∈[0,210] mm、y∈[0,297] mm、z 向上；內部用 SI；畫布 2970×2100（rows, cols），10 px/mm，row = (297 − y)·10（來源：plan:17-18、plan:86）。
   - 設定欄位名帶單位後綴（`_m`、`_mm`、`_m_s`、`_deg`、`_s`、`_px`、`_kg_m3`、`_n_m`、`_pa_s`）（來源：plan:19）。
-  - 所有 Pydantic 模型 `extra="forbid", frozen=True`；錯誤轉成中文 `ConfigError`，訊息含點號欄位路徑；未知欄位寫「不認得這個欄位」（來源：plan:80-85、plan:99-101）。
+  - 所有 Pydantic 模型 `extra="forbid", frozen=True, strict=True`（嚴格型別：YAML 字串 "998" 不轉數字、要報錯；整數可填浮點欄位）；錯誤轉成中文 `ConfigError`，訊息含點號欄位路徑；未知欄位寫「不認得這個欄位」（來源：plan:80-85、plan:99-101）。
   - YAML 一律 UTF-8 讀寫；`default.yaml` 每欄有中文註解（意義、單位、出處），且必須與 `default_config()` 相等（來源：plan:23、plan:103-106）。
   - 飛行：重力 9.81；阻力 a = g − (3·ρ_air·C_d)/(4·ρ_liq·d)·|v|·v；C_d 為 Schiller–Naumann（Re<1000）或 0.44；`solve_ivp` 的 rtol=1e-10、atol=1e-12；`propagate` 允許負時長往回推（來源：plan:87-92）。
+  - TDD 順序依計畫修訂版：UTF-8 讀檔測試驅動 load_config → 錯誤值測試驅動中文錯誤 → default.yaml；飛行為 無阻力 → 阻力縮短射程（驅動阻力）→ 反向積分（驅動 propagate）→ 起點檢查（來源：plan:107-121、plan:126-136）。
   - 精度：無阻力落點與解析解誤差 < 1e-5 m；往回積分回到起點的誤差 < 1e-5 m（來源：plan:115、plan:119；spec:161）。
   - 錯誤訊息一律繁體中文（來源：plan:20）。
 - 參考段落：無大型參考檔。
@@ -73,9 +74,10 @@
   - 開工：frontend-codex.md／impeccable 不適用 — Task 1 沒有畫面或終端機介面（CLI 在 Task 5）。
   - 開工：review-animations 不適用 — 無動畫。
   - 開工：product-security-qa.md 不適用 — 風險等級一般。
+  - B3 規格檢查（282,227 token）：2 處 TDD 順序矛盾 → Claude 已改計畫 Step 6–13、20–24；型別是否自動轉換 → Claude 決定嚴格檢查（可逆、符合 spec「填錯清楚提示」），報告中告知使用者。
   - 收尾：
 - 審查輪次：0 / 2
-- 累計 token：0
+- 累計 token：282,227（spec）
 - 審查結果：
 
 ### Codex 填寫（施工）

@@ -81,7 +81,7 @@ tests/test_*.py                            每個模組一個測試檔
 - Produces：
   - `splash_sim.__version__: str = "0.1.0"`
   - `class ConfigError(ValueError)`，訊息為中文，包含點號路徑的欄位名稱（例：`air.density_kg_m3`）。
-  - Pydantic 模型都設 `model_config = ConfigDict(extra="forbid", frozen=True)`：
+  - Pydantic 模型都設 `model_config = ConfigDict(extra="forbid", frozen=True, strict=True)`（嚴格型別：字串不轉數字，整數可填浮點數欄位）：
     - `LiquidConfig(density_kg_m3: float = 998.0 (>0), surface_tension_n_m: float = 0.072 (>0), viscosity_pa_s: float = 1.0e-3 (>0))`
     - `AirConfig(density_kg_m3: float = 1.204 (>0), viscosity_pa_s: float = 1.81e-5 (>0), drag_enabled: bool = True)`
     - `SimConfig(seed: int = 0 (>=0), liquid: LiquidConfig, air: AirConfig)`。之後的 Task 會在這裡加 `impact`、`render`、`augment`、`scene`、`output` 欄位，每個都有預設值。
@@ -102,12 +102,18 @@ tests/test_*.py                            每個模組一個測試檔
 - [ ] **Step 4：實作 `config.py` 的模型與 `default_config()`**，以及 `__init__.py` 的 `__version__`。
 - [ ] **Step 5：執行同一指令**，預期 PASS。
 
-- [ ] **Step 6：寫失敗測試 `test_load_config_rejects_bad_values`**：寫一個 YAML 設 `air: {density_kg_m3: -1}`，斷言丟出 `ConfigError`，且 `"air.density_kg_m3" in str(e)`、訊息含中文字。另一個案例是未知欄位 `liquid: {colour: red}`，斷言訊息含 `liquid.colour` 與「不認得」。
-- [ ] **Step 7：執行**，預期 FAIL。
-- [ ] **Step 8：實作 `load_config`**：把 Pydantic 的 `ValidationError` 逐條轉成中文。格式為 `設定檔 <路徑> 第 <欄位> 欄：<原因>（合理範圍：…）`，未知欄位寫「不認得這個欄位」。
-- [ ] **Step 9：執行**，預期 PASS。
+- [ ] **Step 6：寫失敗測試 `test_load_config_utf8_comments`**：用 `encoding="utf-8"` 寫入含中文註解 `# 液體密度` 的 YAML（設 `liquid: {density_kg_m3: 1000}`），`load_config` 讀回的值是 1000.0。執行，預期 FAIL（`load_config` 不存在）。
+- [ ] **Step 7：實作 `load_config` 的讀檔部分**（明確用 UTF-8 讀，`yaml.safe_load` 後交給 `SimConfig.model_validate`），執行，預期 PASS。
 
-- [ ] **Step 10：寫失敗測試 `test_load_config_utf8_comments`**：用 `encoding="utf-8"` 寫入含中文註解 `# 液體密度` 的 YAML，`load_config` 讀回的值正確。另一個測試 `test_default_yaml_matches_defaults`：`load_config("configs/default.yaml") == default_config()`。
+- [ ] **Step 8：寫失敗測試 `test_load_config_rejects_bad_values`**，含三個案例：
+  - `air: {density_kg_m3: -1}`：斷言丟出 `ConfigError`，`"air.density_kg_m3" in str(e)`，且訊息含中文字。
+  - 未知欄位 `liquid: {colour: red}`：斷言訊息含 `liquid.colour` 與「不認得」。
+  - 型別錯誤 `liquid: {density_kg_m3: "998"}`（字串）：斷言丟出 `ConfigError`，訊息含 `liquid.density_kg_m3`。**型別採嚴格檢查**（Claude 2026-11-04 決定）：模型設 `strict=True`，字串不會自動轉成數字；整數填進浮點數欄位可以接受，例如 `998`。
+
+  執行，預期 FAIL。
+- [ ] **Step 9：把 Pydantic 的 `ValidationError` 逐條轉成中文 `ConfigError`**，格式為 `設定檔 <路徑> 的 <欄位> 欄：<原因>（合理範圍：…）`，未知欄位寫「不認得這個欄位」。執行，預期 PASS。
+
+- [ ] **Step 10：寫失敗測試 `test_default_yaml_matches_defaults`**：斷言 `load_config("configs/default.yaml") == default_config()`。
 - [ ] **Step 11：執行**，預期 FAIL（`default.yaml` 尚不存在）。
 - [ ] **Step 12：建立 `configs/default.yaml`**，包含 `seed`、`liquid`、`air` 三段，每個欄位都有中文註解（意義、單位、出處）。
 - [ ] **Step 13：執行**，預期 PASS。
@@ -120,13 +126,14 @@ tests/test_*.py                            每個模組一個測試檔
 
 - [ ] **Step 18：寫失敗測試 `test_no_drag_matches_projectile`**：`air` 設 `drag_enabled=False`，從 (0.10, 0.15, 0.20) m 以 (1, 0, 0) m/s 發射，d = 3 mm。斷言 `t = sqrt(2·0.20/9.81)`，撞擊點 x 與 `0.10 + t` 的差 < 1e-5 m（0.01 mm），y 等於 0.15，撞擊速度 z 分量 ≈ `−9.81·t`。
 - [ ] **Step 19：執行**，預期 FAIL。
-- [ ] **Step 20：實作 `fly_to_plane`**（及其共用的加速度函式）。
+- [ ] **Step 20：實作 `fly_to_plane`**，這一步只含重力；阻力留給 Step 22 的測試驅動。
 - [ ] **Step 21：執行**，預期 PASS。
 
-- [ ] **Step 22：寫失敗測試 `test_backward_propagation_returns_to_source`**：開啟阻力，從 (0.05, 0.10, 0.25) 以 (2.0, 1.0, 0.5) 發射，d = 1 mm。先 `fly_to_plane`，再 `propagate(impact_pos, impact_vel, d, …, -flight_time_s)`，回到起點的誤差 < 1e-5 m。
-- [ ] **Step 23：寫失敗測試 `test_drag_shortens_range`**：同樣的發射條件下，開阻力的水平飛行距離 < 不開阻力的距離。
-- [ ] **Step 24：寫失敗測試 `test_fly_rejects_start_below_plane`**：z = 0 起飛時丟出 `ValueError`，且訊息含中文。
-- [ ] 以上三個測試逐一走「寫測試 → 看到 FAIL → 實作 `propagate`／補檢查 → PASS」，一次只處理一個。
+以下三個測試依序各走一次完整的紅綠循環：寫測試 → 看到 FAIL → 實作 → PASS，一次只處理一個。
+
+- [ ] **Step 22：寫失敗測試 `test_drag_shortens_range`**：從 (0.05, 0.10, 0.25) m 以 (2.0, 1.0, 0.5) m/s 發射，d = 1 mm。斷言開阻力時的水平飛行距離 < 不開阻力時的距離。看到 FAIL 後，在共用的加速度函式中加入阻力（使用 `drag_coefficient`），讓測試轉綠。
+- [ ] **Step 23：寫失敗測試 `test_backward_propagation_returns_to_source`**：開啟阻力，用 Step 22 的發射條件先執行 `fly_to_plane`，再執行 `propagate(impact_pos, impact_vel, d, …, -flight_time_s)`，回到起點的誤差 < 1e-5 m。看到 FAIL（`propagate` 不存在）後實作 `propagate`。
+- [ ] **Step 24：寫失敗測試 `test_fly_rejects_start_below_plane`**：從 z = 0 起飛時丟出 `ValueError`，且訊息含中文。看到 FAIL 後補上檢查。
 
 - [ ] **Step 25：全套** `uv run pytest -q`，預期全部 PASS。
 - [ ] **Step 26：提交**（Claude 審查後）：`feat: 專案骨架、設定載入與飛行物理`
