@@ -1,0 +1,18 @@
+# 隨機種子，無單位；出處：實作計畫 Task 1，固定種子用於重現。
+seed: 0
+# 液體物性設定，以下採 SI 單位；出處：設計文件第 3 節。
+liquid:
+  # 水的密度，kg/m³；出處：設計文件第 3 節預設物性。
+  density_kg_m3: 998.0
+  # 水的表面張力，N/m；出處：設計文件第 3 節預設物性。
+  surface_tension_n_m: 0.072
+  # 水的動力黏度，Pa·s；出處：設計文件第 3 節（1.0 mPa·s）。
+  viscosity_pa_s: 0.001
+# 空氣物性與阻力開關，以下採 SI 單位；出處：實作計畫 Task 1。
+air:
+  # 空氣密度，kg/m³；出處：實作計畫 Task 1 的 AirConfig 預設值。
+  density_kg_m3: 1.204
+  # 空氣動力黏度，Pa·s；出處：實作計畫 Task 1 的 AirConfig 預設值。
+  viscosity_pa_s: 0.0000181
+  # 是否計算空氣阻力，無單位；出處：設計文件第 5.1 節。
+  drag_enabled: true
