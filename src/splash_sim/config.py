@@ -11,6 +11,12 @@ class ConfigError(ValueError):
     """設定檔無法讀取或內容不符合規格。"""
 
 
+def _positive_range(value):
+    if not 0 < value[0] <= value[1]:
+        raise ValueError("範圍必須由小到大，且每個值皆大於 0")
+    return value
+
+
 class _ConfigModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
@@ -105,6 +111,72 @@ class AugmentConfig(_ConfigModel):
     jpeg: JpegEffect = Field(default_factory=JpegEffect)
 
 
+class DiameterConfig(_ConfigModel):
+    mode: Literal["fixed", "log_uniform"] = "fixed"
+    fixed_mm: float = Field(default=3.0, gt=0)
+    range_mm: tuple[float, float] = (0.3, 4.0)
+
+    @field_validator("range_mm")
+    @classmethod
+    def valid_range(cls, value):
+        return _positive_range(value)
+
+
+class SprayConfig(_ConfigModel):
+    source_height_m: tuple[float, float] = (0.1, 0.3)
+    source_offset_m: float = Field(default=0.3, ge=0)
+    cone_half_angle_deg: float = Field(default=30., ge=0, lt=90)
+    launch_speed_m_s: tuple[float, float] = (0.5, 5.)
+    drops_launched: tuple[int, int] = (30, 80)
+    min_drops_on_paper: int = Field(default=9, ge=1)
+    max_resample: int = Field(default=50, ge=1)
+    min_impact_angle_deg: float = Field(default=10., gt=0, le=90)
+
+    @field_validator("source_height_m", "launch_speed_m_s", "drops_launched")
+    @classmethod
+    def valid_ranges(cls, value):
+        return _positive_range(value)
+
+
+class VerticalDropConfig(_ConfigModel):
+    heights_m: tuple[float, ...] = (0.1, 0.2, 0.3)
+    grid: tuple[int, int] = (3, 4)
+
+    @field_validator("heights_m", "grid")
+    @classmethod
+    def positive_values(cls, value):
+        if not value or any(item <= 0 for item in value):
+            raise ValueError("必須至少有一個值，且每個值皆大於 0")
+        return value
+
+
+class SingleDropConfig(_ConfigModel):
+    speed_m_s: tuple[float, float] = (0.5, 5.)
+    impact_angle_deg: tuple[float, float] = (10., 90.)
+
+    @field_validator("speed_m_s", "impact_angle_deg")
+    @classmethod
+    def valid_ranges(cls, value, info):
+        _positive_range(value)
+        if info.field_name == "impact_angle_deg" and value[1] > 90:
+            raise ValueError("撞擊角範圍須在 (0, 90] 度")
+        return value
+
+
+class SceneConfig(_ConfigModel):
+    mode: Literal["spray", "vertical_drop", "single"] = "spray"
+    diameter: DiameterConfig = Field(default_factory=DiameterConfig)
+    spray: SprayConfig = Field(default_factory=SprayConfig)
+    vertical_drop: VerticalDropConfig = Field(default_factory=VerticalDropConfig)
+    single: SingleDropConfig = Field(default_factory=SingleDropConfig)
+
+
+class OutputConfig(_ConfigModel):
+    n_scenes: int = Field(default=100, ge=1)
+    name: str = "dataset"
+    crop_size_px: int = Field(default=384, ge=64)
+
+
 class SimConfig(_ConfigModel):
     seed: int = Field(default=0, ge=0)
     liquid: LiquidConfig = Field(default_factory=LiquidConfig)
@@ -112,6 +184,8 @@ class SimConfig(_ConfigModel):
     impact: ImpactConfig = Field(default_factory=ImpactConfig)
     render: RenderConfig = Field(default_factory=RenderConfig)
     augment: AugmentConfig = Field(default_factory=AugmentConfig)
+    scene: SceneConfig = Field(default_factory=SceneConfig)
+    output: OutputConfig = Field(default_factory=OutputConfig)
 
 
 def default_config() -> SimConfig:

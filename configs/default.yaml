@@ -50,3 +50,30 @@ augment:
   blur: {enabled: true, sigma_px: [0.0, 1.2]} # 模糊開關／高斯標準差範圍，px。
   noise: {enabled: true, std: [1.0, 4.0]} # 亮度雜訊開關／標準差範圍，灰階。
   jpeg: {enabled: true, quality: [75, 95]} # 壓縮開關／品質範圍，1–100。
+# 場景取樣，出處：設計 §5.2；範圍由專題實驗設計選定。
+scene:
+  mode: spray # spray 噴射／vertical_drop 垂直滴落／single 直接指定撞擊。
+  diameter:
+    mode: fixed # fixed 固定／log_uniform 對數均勻，無單位。
+    fixed_mm: 3.0 # 固定液滴直徑，mm；對應滴管校正。
+    range_mm: [0.3, 4.0] # 隨機直徑範圍，mm。
+  spray:
+    source_height_m: [0.1, 0.3] # 源頭離紙高度，m。
+    source_offset_m: 0.3 # 紙中心兩側的源頭水平取樣範圍，m。
+    cone_half_angle_deg: 30.0 # 指向紙中心的發射錐半角，度。
+    launch_speed_m_s: [0.5, 5.0] # 發射速率範圍，m/s。
+    drops_launched: [30, 80] # 每次發射滴數範圍，滴。
+    min_drops_on_paper: 9 # 紙內有效滴數下限，滴；設計引用 Joris 2015。
+    max_resample: 50 # 重抽上限，次；避免無限迴圈。
+    min_impact_angle_deg: 10.0 # 撞擊角下限，度；拒絕過淺撞擊。
+  vertical_drop:
+    heights_m: [0.1, 0.2, 0.3] # 逐場景輪替高度，m。
+    grid: [3, 4] # 紙內等分 x/y 格點數，個。
+  single:
+    speed_m_s: [0.5, 5.0] # 直接取樣撞擊速率，m/s。
+    impact_angle_deg: [10.0, 90.0] # 直接取樣撞擊角，度。
+# 輸出設定，出處：設計 §5.4–5.5／計畫 Task 4。
+output:
+  n_scenes: 100 # 場景數，張，至少 1。
+  name: dataset # 資料集名稱，不含路徑。
+  crop_size_px: 384 # 單滴切片邊長，px，不縮放不旋轉。
