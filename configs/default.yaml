@@ -16,3 +16,22 @@ air:
   viscosity_pa_s: 0.0000181
   # 是否計算空氣阻力，無單位；出處：設計文件第 5.1 節。
   drag_enabled: true
+# 撞擊形狀規則：設計 §5.3；經驗近似，非實拍驗證結果。
+impact:
+  ruleset: literature_v1 # 規則組名稱，無單位；出處：設計 §5.3，可替換規則。
+  spread_a: 1.24 # 攤開內插係數，無單位；Laan 2014，待核對原文。
+  angle_bias_deg: 0.0 # 長寬比角度偏差，度；Joris 2017，待實拍校正，預設關閉。
+  spine_a: 0.1443 # 毛刺冪次係數，無單位；Bhola & Chandra 1999／Mehdizadeh 2004，待核對原文。
+  spine_b: 0.5 # We 指數，無單位；同上，待核對原文。
+  spine_c: 0.25 # Re 指數，無單位；同上，待核對原文。
+  spine_min_weber: 10.0 # 毛刺出現門檻，無單位；設計 §5.3，待實拍校正。
+  spine_length_frac: [0.1, 0.35] # 相對寬度的毛刺長度範圍，無單位；待實拍校正。
+  spine_front_kappa: 3.0 # 前緣集中參數，無單位；專題統整第十一節，待實拍校正。
+  tail_coeff: 0.4 # 尾巴長度比例，無單位；設計 §5.3 定性近似，待實拍校正。
+  satellite_min_weber: 150.0 # 衛星小滴門檻，無單位；設計 §5.3，待實拍校正。
+  satellite_per_weber: 0.02 # 衛星數量斜率，無單位；設計 §5.3，待實拍校正。
+  satellite_max: 8 # 衛星數量上限，滴；設計 §5.3，待實拍校正。
+  satellite_size_frac: [0.03, 0.12] # 相對寬度的衛星直徑，無單位；待實拍校正。
+  paper: coated # 紙種 coated 塗佈紙／copy 影印紙；設計 §5.3，待實拍校正。
+  bleed_mm: {coated: 0.05, copy: 0.4} # 暈染寬度，mm；影像近似，待實拍校正。
+  jitter_frac: 0.05 # 共用幾何尺度擾動比例，無單位；設計 §5.3，待實拍校正。

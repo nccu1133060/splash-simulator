@@ -1,9 +1,10 @@
 """具明確單位與嚴格型別的模擬設定。"""
 
 from pathlib import Path
+from typing import Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 
 class ConfigError(ValueError):
@@ -26,10 +27,45 @@ class AirConfig(_ConfigModel):
     drag_enabled: bool = True
 
 
+class ImpactConfig(_ConfigModel):
+    """成形係數出處與校正狀態詳見 configs/default.yaml。"""
+
+    ruleset: str = "literature_v1"
+    spread_a: float = Field(default=1.24, gt=0)
+    angle_bias_deg: float = Field(default=0.0, gt=-90, lt=90)
+    spine_a: float = Field(default=0.1443, ge=0)
+    spine_b: float = Field(default=0.5, ge=0)
+    spine_c: float = Field(default=0.25, ge=0)
+    spine_min_weber: float = Field(default=10.0, ge=0)
+    spine_length_frac: tuple[float, float] = (0.1, 0.35)
+    spine_front_kappa: float = Field(default=3.0, ge=0)
+    tail_coeff: float = Field(default=0.4, ge=0)
+    satellite_min_weber: float = Field(default=150.0, ge=0)
+    satellite_per_weber: float = Field(default=0.02, ge=0)
+    satellite_max: int = Field(default=8, ge=0)
+    satellite_size_frac: tuple[float, float] = (0.03, 0.12)
+    paper: Literal["coated", "copy"] = "coated"
+    bleed_mm: dict[str, float] = Field(default_factory=lambda: {"coated": 0.05, "copy": 0.4})
+    jitter_frac: float = Field(default=0.05, ge=0, lt=1)
+
+    @field_validator("spine_length_frac", "satellite_size_frac", mode="before")
+    @classmethod
+    def yaml_ranges(cls, value):
+        return tuple(value) if isinstance(value, list) else value
+
+    @field_validator("spine_length_frac", "satellite_size_frac")
+    @classmethod
+    def ordered_ranges(cls, value):
+        if not 0 <= value[0] <= value[1]:
+            raise ValueError("範圍必須由小到大且不得為負")
+        return value
+
+
 class SimConfig(_ConfigModel):
     seed: int = Field(default=0, ge=0)
     liquid: LiquidConfig = Field(default_factory=LiquidConfig)
     air: AirConfig = Field(default_factory=AirConfig)
+    impact: ImpactConfig = Field(default_factory=ImpactConfig)
 
 
 def default_config() -> SimConfig:
