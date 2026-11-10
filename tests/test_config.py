@@ -65,3 +65,21 @@ def test_load_config_invalid_yaml(tmp_path):
         load_config(path)
     assert str(path) in str(error.value)
     assert "語法" in str(error.value)
+
+
+@pytest.mark.parametrize("content,field", [
+    ("augment: {noise: {std: [4.0, 1.0]}}", "augment.noise.std"),
+    ("augment: {blur: {sigma_px: [-1.0, 1.0]}}", "augment.blur.sigma_px"),
+    ("augment: {jpeg: {quality: [0, 101]}}", "augment.jpeg.quality"),
+    ("render: {dye_opacity: [0.9, 0.6]}", "render.dye_opacity"),
+    ("render: {paper_rgb: [256, 0, 0]}", "render.paper_rgb"),
+    ("impact: {bleed_mm: {copy: 0.4}}", "impact.bleed_mm"),
+    ("impact: {bleed_mm: {coated: -1.0, copy: 0.4}}", "impact.bleed_mm"),
+    ("impact: {spine_front_kappa: .inf}", "impact.spine_front_kappa"),
+])
+def test_rendering_settings_rejected_before_simulation(tmp_path, content, field):
+    from splash_sim.config import ConfigError, load_config
+    path = tmp_path / "範圍錯誤.yaml"
+    path.write_text(content, encoding="utf-8")
+    with pytest.raises(ConfigError, match=field):
+        load_config(path)

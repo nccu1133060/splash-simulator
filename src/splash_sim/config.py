@@ -17,8 +17,14 @@ def _positive_range(value):
     return value
 
 
+def _nonnegative_range(value):
+    if not 0 <= value[0] <= value[1]:
+        raise ValueError("範圍必須由小到大且不得為負")
+    return value
+
+
 class _ConfigModel(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True, allow_inf_nan=False)
 
     @field_validator("*", mode="before")
     @classmethod
@@ -69,8 +75,15 @@ class ImpactConfig(_ConfigModel):
     @field_validator("spine_length_frac", "satellite_size_frac")
     @classmethod
     def ordered_ranges(cls, value):
-        if not 0 <= value[0] <= value[1]:
-            raise ValueError("範圍必須由小到大且不得為負")
+        return _nonnegative_range(value)
+
+    @field_validator("bleed_mm")
+    @classmethod
+    def valid_bleed(cls, value, info):
+        if info.data.get("paper", "coated") not in value:
+            raise ValueError("bleed_mm 缺少所選 paper 的暈染寬度")
+        if any(width < 0 for width in value.values()) or set(value) - {"coated", "copy"}:
+            raise ValueError("bleed_mm 僅接受 coated／copy，寬度必須非負且有限")
         return value
 
 
@@ -82,6 +95,21 @@ class RenderConfig(_ConfigModel):
     draw_tail: bool = True
     draw_satellites: bool = True
 
+    @field_validator("paper_rgb", "dye_rgb")
+    @classmethod
+    def valid_rgb(cls, value):
+        if any(not 0 <= channel <= 255 for channel in value):
+            raise ValueError("RGB 每個色彩值須在 0–255")
+        return value
+
+    @field_validator("dye_opacity")
+    @classmethod
+    def valid_opacity(cls, value):
+        _nonnegative_range(value)
+        if value[1] > 1:
+            raise ValueError("不透明度範圍須在 0–1")
+        return value
+
 
 class StrengthEffect(_ConfigModel):
     enabled: bool = True
@@ -92,15 +120,32 @@ class BlurEffect(_ConfigModel):
     enabled: bool = True
     sigma_px: tuple[float, float] = (0.0, 1.2)
 
+    @field_validator("sigma_px")
+    @classmethod
+    def valid_range(cls, value):
+        return _nonnegative_range(value)
+
 
 class NoiseEffect(_ConfigModel):
     enabled: bool = True
     std: tuple[float, float] = (1.0, 4.0)
 
+    @field_validator("std")
+    @classmethod
+    def valid_range(cls, value):
+        return _nonnegative_range(value)
+
 
 class JpegEffect(_ConfigModel):
     enabled: bool = True
     quality: tuple[int, int] = (75, 95)
+
+    @field_validator("quality")
+    @classmethod
+    def valid_quality(cls, value):
+        if not 1 <= value[0] <= value[1] <= 100:
+            raise ValueError("JPEG 品質範圍須由小到大且在 1–100")
+        return value
 
 
 class AugmentConfig(_ConfigModel):
@@ -219,5 +264,9 @@ def load_config(path: str | Path) -> SimConfig:
         for detail in error.errors():
             field = ".".join(str(part) for part in detail["loc"]) or "根節點"
             reason, allowed = reasons.get(detail["type"], ("設定值不符合要求", "符合欄位的型別與限制"))
+            if detail["type"] == "value_error":
+                reason = str(detail.get("ctx", {}).get("error", reason))
+            elif detail["type"] == "finite_number":
+                reason, allowed = "必須填入有限數字，不可為無限大或非數值", "有限數字"
             messages.append(f"設定檔 {path} 的 {field} 欄：{reason}（合理範圍：{allowed}）")
         raise ConfigError("\n".join(messages)) from error

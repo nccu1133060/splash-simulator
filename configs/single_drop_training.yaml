@@ -1,0 +1,6 @@
+# 單滴訓練；出處：計畫 Task 5。切片保留 10 px/mm，不旋轉。
+scene:
+  mode: single # 跳過飛行，直接取樣撞擊狀態。
+output:
+  n_scenes: 5000 # 場景數，張；實際產生可先用 --n 10 小量檢查。
+  name: single_training # 輸出名稱。

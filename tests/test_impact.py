@@ -93,3 +93,20 @@ def test_impact_config_yaml_ranges(tmp_path):
     path.write_text("impact: {spine_length_frac: [0.4, 0.1]}", encoding="utf-8")
     with pytest.raises(ConfigError, match="impact.spine_length_frac"):
         load_config(path)
+
+
+@pytest.mark.parametrize("bias", [-20., -10., 85.])
+def test_invalid_effective_impact_angle_rejected(bias):
+    from splash_sim.config import ConfigError
+    velocity = (np.cos(np.radians(10)), 0, -np.sin(np.radians(10)))
+    with pytest.raises(ConfigError, match="angle_bias_deg"):
+        stain(velocity, angle_bias_deg=bias)
+
+
+@pytest.mark.parametrize("velocity,diameter", [([0., 0., 0.], 3.), ([0., 0., -2.], 0.), ([0., 0., -2.], -1.), ([float('nan'), 0., -2.], 3.)])
+def test_invalid_direct_impact_input_rejected(velocity, diameter):
+    from splash_sim.config import ImpactConfig, LiquidConfig, ConfigError
+    from splash_sim.impact import compute_stain
+    with pytest.raises(ConfigError, match="velocity_m_s|diameter_mm"):
+        compute_stain((105., 148.5), np.array(velocity), diameter, LiquidConfig(),
+                      ImpactConfig(angle_bias_deg=5.), np.random.default_rng(0))

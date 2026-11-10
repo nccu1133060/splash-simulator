@@ -1,0 +1,9 @@
+# 垂直滴落校正；其餘欄位沿用 default.yaml 的程式預設，出處：設計 §5.2。
+scene:
+  mode: vertical_drop # 垂直格點模式。
+  diameter:
+    mode: fixed # 固定滴徑，配合滴管。
+    fixed_mm: 3.0 # 液滴直徑，mm。
+augment:
+  blur: {enabled: false} # 校正時關閉相機模糊近似。
+  jpeg: {enabled: false} # 校正時關閉壓縮。

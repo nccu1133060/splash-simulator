@@ -8,6 +8,7 @@ from pathlib import Path
 
 import numpy as np
 import yaml
+from scipy.ndimage import find_objects
 
 from splash_sim.augment import apply_augmentations
 from splash_sim.config import ConfigError, default_config
@@ -32,6 +33,7 @@ def _render_scene(scene, cfg, rng):
     crops, truncated = {}, {}
     size = cfg.output.crop_size_px
     height, width = image.shape[:2]
+    boxes = find_objects(rendered.instance_mask, max_label=len(scene.drops))
     for drop in scene.drops:
         center = np.rint(mm_to_px(*drop.stain.center_mm)).astype(int)
         x0, y0 = center - size//2
@@ -41,9 +43,9 @@ def _render_scene(scene, cfg, rng):
         sx0, sy0, sx1, sy1 = max(0, x0), max(0, y0), min(width, x1), min(height, y1)
         if sx1 > sx0 and sy1 > sy0:
             crop[sy0-y0:sy1-y0, sx0-x0:sx1-x0] = image[sy0:sy1, sx0:sx1]
-        yy, xx = np.where(rendered.instance_mask == drop.drop_id+1)
         clipped = x0 < 0 or y0 < 0 or x1 > width or y1 > height
-        outside = len(xx) > 0 and (xx.min() < x0 or xx.max() >= x1 or yy.min() < y0 or yy.max() >= y1)
+        box = boxes[drop.drop_id]
+        outside = box is not None and (box[1].start < x0 or box[1].stop > x1 or box[0].start < y0 or box[0].stop > y1)
         crops[drop.drop_id] = crop
         truncated[drop.drop_id] = bool(clipped or outside)
     return SceneOutput(scene, rendered, image, crops, truncated)

@@ -60,7 +60,10 @@ def literature_v1(center_mm, velocity_m_s, diameter_mm, liquid, impact, rng):
     alpha = np.arctan2(normal, tangent)
     direction = float(np.degrees(np.arctan2(velocity_m_s[1], velocity_m_s[0])) % 360) if tangent else 0.0
     # Joris 2017 的系統偏差方向；偏差值待實拍校正，預設關閉。
-    length = float(width / np.sin(alpha + np.radians(impact.angle_bias_deg)))
+    effective_angle = float(np.degrees(alpha)) + impact.angle_bias_deg
+    if not 0 < effective_angle <= 90:
+        raise ConfigError("impact.angle_bias_deg 與撞擊角 impact_angle_deg 相加後須在 (0, 90] 度；請調整偏差或撞擊角範圍")
+    length = float(width / np.sin(np.radians(effective_angle)))
     # Bhola & Chandra 1999／Mehdizadeh 2004 冪次形式，係數待核對原文。
     count = round(impact.spine_a * weber**impact.spine_b * reynolds**impact.spine_c) if weber >= impact.spine_min_weber else 0
     # 斜撞前緣集中：專題統整第十一節定性關係；分布參數待實拍校正。
@@ -96,4 +99,9 @@ def get_ruleset(name: str) -> RuleFn:
 
 
 def compute_stain(center_mm, velocity_m_s, diameter_mm, liquid, impact, rng):
+    velocity_m_s = np.asarray(velocity_m_s, dtype=float)
+    if velocity_m_s.shape != (3,) or not np.all(np.isfinite(velocity_m_s)) or abs(velocity_m_s[2]) <= 0:
+        raise ConfigError("velocity_m_s 必須是三個有限數值，且法向撞擊速度不得為 0")
+    if not np.isfinite(diameter_mm) or diameter_mm <= 0:
+        raise ConfigError("diameter_mm 必須是大於 0 的有限數值")
     return get_ruleset(impact.ruleset)(center_mm, velocity_m_s, diameter_mm, liquid, impact, rng)

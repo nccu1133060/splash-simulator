@@ -1,0 +1,6 @@
+# 隨機滴徑噴射；出處：設計 §5.2 的對數均勻選項。
+scene:
+  mode: spray # 點源錐內噴射。
+  diameter:
+    mode: log_uniform # 對數均勻分布。
+    range_mm: [0.3, 4.0] # 直徑範圍，mm。
