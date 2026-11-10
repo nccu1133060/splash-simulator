@@ -35,3 +35,18 @@ impact:
   paper: coated # 紙種 coated 塗佈紙／copy 影印紙；設計 §5.3，待實拍校正。
   bleed_mm: {coated: 0.05, copy: 0.4} # 暈染寬度，mm；影像近似，待實拍校正。
   jitter_frac: 0.05 # 共用幾何尺度擾動比例，無單位；設計 §5.3，待實拍校正。
+# 繪製外觀，出處：計畫 Task 3／設計 §5.4；非物理形狀參數。
+render:
+  paper_rgb: [245, 245, 240] # 紙色，RGB 0–255；設計預設。
+  dye_rgb: [190, 30, 45] # 染料顏色，RGB 0–255；設計預設。
+  dye_opacity: [0.6, 0.9] # 染料不透明度範圍，0–1；影像效果。
+  draw_spines: true # 繪製毛刺，布林值；幾何來自 impact 規則。
+  draw_tail: true # 繪製尾巴，布林值；幾何來自 impact 規則。
+  draw_satellites: true # 繪製衛星，布林值；另存母滴編號遮罩。
+# 影像干擾，出處：設計 §5.4；僅改影像，不改遮罩及答案。
+augment:
+  paper_texture: {enabled: true, strength: 6.0} # 紙紋開關／亮度標準差，0–255 灰階。
+  lighting: {enabled: true, strength: 0.08} # 光線梯度開關／相對強度，無單位。
+  blur: {enabled: true, sigma_px: [0.0, 1.2]} # 模糊開關／高斯標準差範圍，px。
+  noise: {enabled: true, std: [1.0, 4.0]} # 亮度雜訊開關／標準差範圍，灰階。
+  jpeg: {enabled: true, quality: [75, 95]} # 壓縮開關／品質範圍，1–100。

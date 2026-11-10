@@ -1,7 +1,7 @@
 """具明確單位與嚴格型別的模擬設定。"""
 
 from pathlib import Path
-from typing import Literal
+from typing import Literal, get_origin
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
@@ -13,6 +13,13 @@ class ConfigError(ValueError):
 
 class _ConfigModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def yaml_sequences(cls, value, info):
+        if get_origin(cls.model_fields[info.field_name].annotation) is tuple and isinstance(value, list):
+            return tuple(value)
+        return value
 
 
 class LiquidConfig(_ConfigModel):
@@ -61,11 +68,50 @@ class ImpactConfig(_ConfigModel):
         return value
 
 
+class RenderConfig(_ConfigModel):
+    paper_rgb: tuple[int, int, int] = (245, 245, 240)
+    dye_rgb: tuple[int, int, int] = (190, 30, 45)
+    dye_opacity: tuple[float, float] = (0.6, 0.9)
+    draw_spines: bool = True
+    draw_tail: bool = True
+    draw_satellites: bool = True
+
+
+class StrengthEffect(_ConfigModel):
+    enabled: bool = True
+    strength: float = Field(default=6.0, ge=0)
+
+
+class BlurEffect(_ConfigModel):
+    enabled: bool = True
+    sigma_px: tuple[float, float] = (0.0, 1.2)
+
+
+class NoiseEffect(_ConfigModel):
+    enabled: bool = True
+    std: tuple[float, float] = (1.0, 4.0)
+
+
+class JpegEffect(_ConfigModel):
+    enabled: bool = True
+    quality: tuple[int, int] = (75, 95)
+
+
+class AugmentConfig(_ConfigModel):
+    paper_texture: StrengthEffect = Field(default_factory=StrengthEffect)
+    lighting: StrengthEffect = Field(default_factory=lambda: StrengthEffect(strength=0.08))
+    blur: BlurEffect = Field(default_factory=BlurEffect)
+    noise: NoiseEffect = Field(default_factory=NoiseEffect)
+    jpeg: JpegEffect = Field(default_factory=JpegEffect)
+
+
 class SimConfig(_ConfigModel):
     seed: int = Field(default=0, ge=0)
     liquid: LiquidConfig = Field(default_factory=LiquidConfig)
     air: AirConfig = Field(default_factory=AirConfig)
     impact: ImpactConfig = Field(default_factory=ImpactConfig)
+    render: RenderConfig = Field(default_factory=RenderConfig)
+    augment: AugmentConfig = Field(default_factory=AugmentConfig)
 
 
 def default_config() -> SimConfig:
