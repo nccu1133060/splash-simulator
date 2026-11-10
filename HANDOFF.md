@@ -1,14 +1,14 @@
 # 交接
 
 ## 目前狀態（2026-11-11）
-- Task 1–4 已合併至本機 `main`；Task 5 建置及審查修正完成，分支全測通過，正在依預先授權收尾合併。
+- Task 1–5 建置成果均已合併至本機 `main`；程式提交 `26e30c1`，合併後全套 101 項測試通過。自動開圖畫面仍受環境限制而未確認。
 - 設計文件：`docs/superpowers/specs/2026-10-21-simulator-design.md`，**使用者 2026-11-04 核可**。
 - 實作計畫：`docs/superpowers/plans/2026-11-04-splash-simulator.md`，使用者 2026-11-04 啟動 Task 1（視為核可）。
 - 本輪實作方式：使用者直接授權 Codex 完成剩餘全部 Task、提交及合併，不逐 Task 再詢問；沿用目前資料夾、各 Task 分支。原半自動協作方式只作歷史紀錄。
 
 ## 下一步
 - Task 1 已合併至本機 `main`，原分支保留。施工與審查紀錄：`docs/handoff-archive/2026-11-04-task-1.md`。
-- Task 2–4 已完成並合併；Task 5 正在收尾。M2 模擬／實拍比對仍需實拍資料，不在本輪範圍。
+- 本輪計畫建置與本機合併已收尾；下一階段為以實拍資料校正／比對（M2），需另外啟動，不在本輪範圍。自動開圖畫面需在可用的桌面／瀏覽器環境補驗。
 
 ## Task 分派
 詳細檔案範圍見計畫中的「Task 分派總表」。一次一個 Task，合併 main 後才開下一個。
@@ -19,7 +19,7 @@
 | 2 | 撞擊成形規則 | Codex | task-2-impact | 否 | 已合併 main（59f46cc） |
 | 3 | 繪製、特徵量測、干擾、影像讀寫 | Codex | task-3-render | 否 | 已合併 main（8869a8a） |
 | 4 | 場景取樣與資料集輸出 | Codex | task-4-scene-dataset | 否 | 已合併 main（1556e9c） |
-| 5 | CLI、YOLO 匯出、範例設定、README | Codex | task-5-cli-docs | 否 | 建置完成、101 項全測通過，待本輪合併 |
+| 5 | CLI、YOLO 匯出、範例設定、README | Codex | task-5-cli-docs | 否 | 已合併 main（26e30c1），開圖畫面驗收未確認 |
 
 共用檔案注意：`config.py`、`configs/default.yaml` 由 Task 1–4 依序各加自己的段落；`pyproject.toml`／`uv.lock` 只在 Task 1 宣告相依，Task 5 只加 `[project.scripts]`。
 
@@ -81,3 +81,5 @@
 - Final review 未驗證事項裁定：以本輪完整全測／安裝／CLI 實際操作補足 reviewer 未跑項；開圖、實拍、文獻原文、macOS、跨平台 byte-identical 不在已驗證範圍，保持明示；既有 Ruling 保留；全遮蔽資料按上列規則處理；大規模種子掃描、資源上限與第三方漏洞掃描不擴增，本輪只對預設 100 種子及局部輸入做證據驗收。代價是這些未測範圍不能保證。
 - Deferred minors：沒有新增 visibility 欄位、自動訓練分割／val 或大規模資源測試；本輪以文件明示限制，後續按實驗需求另議。HANDOFF 摘要已同步，STATUS 舊摘要未改。
 - 尚無遠端／遠端 CI／部署流程；本輪僅本機建置與合併，無正式網站，不另建服務。全測後只更新文件並清理本輪產生的套件 metadata／測試暫存，不再改程式。
+- 最終 main 驗證：2026-11-11，`uv run pytest -q -p no:cacheprovider --basetemp=<TEMP>/splash-main-final` → 101 passed in 19.28s，exit 0；來源 main=26e30c1，uv 重建本機套件後執行。之後僅本交接完成狀態更新及暫存清理，程式／相依／設定／測試不變。
+- 分支均保留；最終交接補記由本輪直接授權的 Codex 提交。預覽 datasets/preview.png、縮圖 datasets/preview_review.png、十張資料集 datasets/acceptance_20261111-011330 與其 yolo/ 保留在已忽略的 datasets/ 下，不納入 Git。沒有 push／PR／部署。
