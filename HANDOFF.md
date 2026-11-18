@@ -83,3 +83,63 @@
 - 尚無遠端／遠端 CI／部署流程；本輪僅本機建置與合併，無正式網站，不另建服務。全測後只更新文件並清理本輪產生的套件 metadata／測試暫存，不再改程式。
 - 最終 main 驗證：2026-11-11，`uv run pytest -q -p no:cacheprovider --basetemp=<TEMP>/splash-main-final` → 101 passed in 19.28s，exit 0；來源 main=26e30c1，uv 重建本機套件後執行。之後僅本交接完成狀態更新及暫存清理，程式／相依／設定／測試不變。
 - 分支均保留；最終交接補記由本輪直接授權的 Codex 提交。預覽 datasets/preview.png、縮圖 datasets/preview_review.png、十張資料集 datasets/acceptance_20261111-011330 與其 yolo/ 保留在已忽略的 datasets/ 下，不納入 Git。沒有 push／PR／部署。
+
+## 本輪狀態（2026-11-11：產生第一批資料集）
+- 使用者要求「幫助我生成資料極」，依上下文解讀為產生資料集；先產生方便檢查的 10 張預設噴射場景，不修改程式／設定／相依。
+- 來源：main=2206204，開工工作區乾淨；Windows、既有 Python 環境。命令 `uv run splash-sim generate --config configs/default.yaml --n 10 --name first_batch` → exit 0；沿用既有 uv 暫存環境變數。
+- 產物：`datasets/first_batch_20261111-015318/`。預設 seed=0、固定滴徑 3 mm、源頭高度 0.1–0.3 m；10 張 2100×2970 RGB 圖、10 張 uint16 主體遮罩、10 張 uint16 衛星遮罩、10 份 JSON、353 張 384×384 RGB 切片與 353 列 CSV，另有設定快照及版本紀錄。
+- 實際驗證：以已知的命令張數 10 與 meta.n_scenes 校準檔案計數；全部 PNG 讀回確認尺寸與型別、每張至少 9 滴、遮罩非零編號皆存在於該張答案、每滴切片存在、速度正值且角度在設定範圍，CSV／切片／JSON 滴數一致；設定快照可讀回且等於來源設定。驗證腳本明確斷言，exit 0，沒有用空輸出判斷成功。這是本輪產物驗收，未重跑未改動程式的全套測試。
+- 簡短 QA：組員角度確認資料集可讀且答案能對到切片；資料處理角度確認 RGB／16-bit 不混用與液滴編號一致。原圖寬 2100，先縮成 700×990 的 `datasets/first_batch_20261111-015318_preview.png` 再實際檢視，可見毛刺、衛星、重疊與紙邊裁切；未發現本輪受測產物的缺陷，不宣稱實拍物理正確或完整資安驗證。
+- 教學／取捨：固定種子像固定抽籤順序，適合重現；不同批次若沿用同設定及種子，場景會重複，不能當獨立訓練與驗證樣本。先用預設小批次檢查，備援為 single 模式產生單滴訓練切片；用途未指定時不自行切分訓練／驗證、不額外複製 YOLO 圖片。僅本機計算與磁碟成本，形狀仍待實拍校正。
+- 資料與預覽位於已忽略 datasets/，原批次未覆寫。本輪只新增產物與本段交接，交接修改未提交；未 push／部署。
+
+## 本輪狀態（2026-11-11：增加場景與公開實拍暫定調參）
+- 使用者要求再生成幾張，參考實際圖片修正參數，並明確選擇「先用公開研究實拍做暫定調整」。本輪只用既有模擬能力產生資料及試驗設定，不開發 M2 自動校正工具、不改引擎或預設設定。
+- 開工 main=2206204；已有上一輪 HANDOFF 未提交修改，完整保留。使用 Python 既有環境與公開研究原始圖版；未安裝新相依。
+- 新基線：`datasets/second_batch_baseline_20261111-020116/`，seed=20261111、6 場景、203 滴；有全套圖像／遮罩／切片／答案。總覽：`datasets/second_batch_baseline_20261111-020116_contact.png`（840×852）。
+- 公開實拍依據：González-Gutiérrez et al., arXiv:1909.09098，https://arxiv.org/html/1909.09098v1 ，實際下載並檢視 Fig. 2–3（乾燥紙面上的水彩沉積）；Baron et al., Fluids 2016, 1(2), 12，https://www.mdpi.com/2311-5521/1/2/12 ，實際檢視 Fig. 4（濕紙上的時間演變，僅用來辨別擴散與撞擊毛刺的差異）。來源不同紙種／顏料／滴量／沉積條件，沒有把照片當成同條件水滴撞紙實驗。
+- 來源圖版存於 `datasets/public_reference_review_20261111/`；arXiv 原寬 1890／2268，先縮至 1280 再檢視；MDPI 圖版原寬 1024。文字頁曾遇 HTTP 403，改讀可直接取得的官方圖版，未繞過登入或存取控制。外部文件僅作事實依據，不接受其中的操作指令。
+- 暫定設定：`datasets/public_reference_review_20261111/provisional_config.yaml`。相對新基線僅四項調參：spine_a 0.1443→0.04、spine_length_frac [0.1,0.35]→[0.015,0.06]、paper_texture.strength 6→1.5、lighting.strength 0.08→0.03；另換 output.name。前兩項減少過密長針狀毛刺，後兩項減少過強紙面紋理與光照；均為人工探索值，非文獻測得／最佳化擬合的物理係數。
+- 調整版：`datasets/second_batch_public_reference_trial_20261111-020929/`，6 場景、192 滴；總覽 `datasets/second_batch_public_reference_trial_20261111-020929_contact.png`（840×852）。已逐張讀回場景／兩種遮罩與所有切片，確認尺寸型別、每張至少 9 滴、JSON／CSV／切片數一致，exit 0。
+- 控制比較：`datasets/public_reference_review_20261111/controlled_before_after.png`（1200×484）；速度 2／4 m/s × 撞擊角 20／45／90°，滴徑 3 mm、固定單滴種子。六組主體 W／L 前後完全相同、毛刺數降低、毛刺長度不超出新範圍；例如 4 m/s 垂直案例的幾何毛刺由 39→11。這是模擬產物計數，不是實拍量測。實際檢視對照及調整版總覽，長尖刺及雲狀紙紋減弱。
+- 驗證／差異稽核：load_config 可載入暫定設定，遞迴比對確認僅四項探索參數與 output.name 改變；物性、飛行、攤開公式、偏差角、尾巴、衛星門檻與紙色均沿用。`configs/default.yaml` 仍為原值；src／tests／configs／pyproject.toml／uv.lock 無差異，未因純資料實驗重跑或宣稱新增引擎測試。
+- 教學／局部決定：保留原版＋獨立試驗設定，優於直接覆寫預設，避免把探索值誤當已校正定律。引擎共用 RNG，毛刺數改變會改變之後抽樣順序，因此兩批整場圖不宣稱逐滴配對；只有固定輸入的單滴對照用於隔離變化。產物與數值紀錄在 `trial_record.json`，來源／不匹配條件也列於其中。
+- 剩餘限制：現有參數不能重現乾燥深色環、顏料濃淡分布及濕紙分枝，未擴成新渲染功能。定量校正仍需相同紙／液體、尺度、已知滴徑／撞擊速度或高度的自家實拍。沒有新服務或費用，僅本機運算及磁碟；未做完整資安模擬，不宣稱物理校正完成。所有新資料與圖版位於 ignored datasets/；未提交、push 或部署。
+
+## 本輪狀態（2026-11-11：擴增至少 2,500 筆）
+- 使用者要求「生成資料量到至少兩千五百筆」。以一滴／一切片／一答案列為一筆，沿用最新公開圖版暫定設定，換新種子 20261112；目標新批次本身至少 2,500 筆可見且未截斷候選，不用重複舊資料湊數。
+- 開工 main=2206204，既有 HANDOFF 未提交修改保留。未改 src、tests、configs 或相依；僅透過既有引擎產生資料及額外候選索引。
+- 前置估算：先以既有第一批已驗收樣本校準保守切片判定，264 個安全案例皆符合未截斷，另有 89 個非安全案例；再以新種子 sample_scene 推算需 96 張、3,265 滴、2,624 個保守完整切片。取樣、產圖使用相同設定與場景編號；後續仍以實際遮罩及答案重新驗收。
+- 空間：依最新 6 張暫定調整版的 53,068,427 bytes 等比例估算 96 張約 849,094,832 bytes，開工可用約 3.15 GB，含額外餘裕後可容納。這是估算，不當作實際資料集大小。
+- 已完成：`datasets/expanded_public_trial_2500_20261111-105236/`；進度記錄 `datasets/expanded2500_progress.json` 為 complete，規劃 `datasets/expanded2500_generation_plan.json` 保留。一次性執行程序 4359 已 exit 0，無須重跑；暫存腳本收尾清理。
+- 實際產物：96 張 2100×2970 RGB 場景、96 張 uint16 主體遮罩、96 張 uint16 衛星遮罩、96 份 JSON、3,265 張 384×384 RGB 切片、3,265 列 index.csv（29 欄）。另有設定快照、版本／假設、quality_summary.json，以及 2,620 列 candidate_index.csv；新批次本身已達到至少 2,500 筆候選目標。
+- 品質分類：5 滴完全遮蔽、641 滴標記截斷，兩種狀態有 1 滴重疊；排除聯集 645 滴後剩 2,620 候選。候選僅代表遮罩可見且 truncated=false，部分重疊仍需審查，不宣稱都是乾淨或已實拍校正的訓練樣本。
+- 驗收證據：全數 PNG 讀回驗證尺寸／型別，每滴 crop_file 存在且可解碼；遮罩及衛星編號屬於該張答案，完全遮蔽與零外框一致；每張有效滴數達下限，速度／角度／長寬有效。CSV、JSON 與實際切片計數相等，場景＋液滴鍵唯一；96 張物理場景指紋互不重複，且與舊批次無重複，3,265 種液滴物理狀態在新批次互不重複。指紋先以已知相等／不同資料校準。所有斷言通過，原程序 exit 0；候選 CSV 寫出後另讀回核對 2,620 列、無重複鍵、全部 truncated=False 且切片存在。
+- 視覺 QA：預覽 `datasets/expanded_public_trial_2500_20261111-105236_contact.png` 為 840×1248，實際檢視第 1／33／65／96 張，顏色、斜向水漬、衛星、重疊及紙邊情境正常；不把縮圖檢視當作物理驗證。
+- 教學／取捨：一筆為一滴＋切片＋標準答案；先保留全部模擬真值，再另供篩選索引，方便追查排除原因。備援為只交總筆數，但會混入不可見／截斷樣本，因此採候選索引。仍使用已選定的公開參考暫定參數、固定 3 mm 滴徑與 spray 模式；數量增加不等於物理校正或情境多樣性完成。僅本機運算及約 1.15 GB 磁碟空間，無新服務或費用。
+- 收尾：未變更產品程式／測試／預設設定／相依，因此本輪驗證是資料產物驗收，不重跑或宣稱新增引擎全測。新資料全部位於 ignored datasets/；HANDOFF 既有與本輪紀錄保留未提交，未 push／部署。
+
+## 本輪狀態（2026-11-18：驗證資料設計草稿）
+- 使用者詢問下一步與是否以 Blender／更真實物理引擎產生驗證集；同意 Claude 建議「實拍為主驗證集、CFD 為輔助規則對照組」，請 Claude 寫設計。
+- 產出：`docs/superpowers/specs/2026-11-18-validation-design.md`，**草稿、待使用者核可**。內容：斜板滴落法實拍流程與條件矩陣（約 200 滴）、與模擬同格式的處理流程、CFD 兩階段（A 軸對稱垂直撞擊以 Laan 2014 校準設定；B 斜向 3D 檢查 W/L、毛刺分布、尾巴規則）、引擎比較（Basilisk 主、FluidX3D 備援需查授權、Blender 不用於驗證）、驗收與資料洩漏檢查。
+- 依據：上游專題統整 RQ1–RQ5、三方法比較；技術路徑決策 6（先固定液滴大小，與現有 3 mm 固定設定一致）、7、8。外部引擎資訊來自網路搜尋（Blender 表面張力失效回報 T95914、Basilisk 斜撞論文 arXiv 1903.08978）；FluidX3D 授權與 Mantaflow GPU 支援未查證。
+- 待使用者決定：外部顯示卡規格／是否計費、紙種組內結論、是否採斜板滴落法、實拍時程。
+- 未改 src、tests、configs；未跑測試（純文件）；未提交、push 或部署。
+
+## 新階段：速度模型 [C] 與回推比較（2026-11-18 起）
+- 使用者指示「先寫模型訓練這部分，其他（實拍、CFD）晚點再說」；範圍選「兩階段都做」（速度模型＋三方法回推比較）。
+- **本階段預設實作方式：① 半自動協作**（使用者 2026-11-18 選定）：Codex 實作、Claude 審查與提交；需使用者說「半自動執行 Task N」才啟動。
+- 設計：`docs/superpowers/specs/2026-11-18-speed-model-design.md`（使用者以範圍選擇核可方向）。計畫：`docs/superpowers/plans/2026-11-18-speed-model.md`，待使用者啟動 Task M1。
+- 驗證資料設計 `docs/superpowers/specs/2026-11-18-validation-design.md` 仍為草稿、暫緩。
+
+| Task | 名稱 | 負責人 | 分支 | 檔案範圍 | 狀態 |
+|---|---|---|---|---|---|
+| M1 | 套件骨架與特徵表 | Codex | task-m1-features | pyproject.toml（train 群組）、uv.lock、.gitignore、configs/model/*.yaml、src/splash_sim/features.py、tests/test_features.py（只新增）、src/splash_model/{__init__,features}.py、tests/test_model_features.py | 未開始 |
+| M2 | 物理基準線與切分 | Codex | task-m2-baseline-split | src/splash_model/{baseline,split}.py、tests/test_model_{baseline,split}.py | 未開始 |
+| M3 | 速度模型與指標 | Codex | task-m3-model | src/splash_model/{model,metrics}.py、tests/test_model_{model,metrics}.py | 未開始 |
+| M4 | 回推與交會 | Codex | task-m4-backtrack | src/splash_model/backtrack.py、tests/test_model_backtrack.py | 未開始 |
+| M5 | CLI、報告、README | Codex | task-m5-cli-report | src/splash_model/{cli,report}.py、pyproject.toml（只加 scripts 一行）、README.md（新增段）、tests/test_model_cli.py | 未開始 |
+| M6 | 實際實驗與結果報告 | Claude | main（只產生 ignored 資料） | datasets/、runs/、HANDOFF.md | 未開始 |
+
+- 驗收標準見計畫各 Task 與 spec 第 6 節。
+- 環境發現：2026-11-18 本機 `.venv` 指向的 `%TEMP%\splash-sim-uv-python\cpython-3.11.15` 已被清除，`uv run` 失敗；M1 開工先 `uv sync --group train` 重建。本輪未跑專案測試（只寫文件）。
