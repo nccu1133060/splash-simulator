@@ -160,8 +160,8 @@
   - `src/splash_model/__init__.py`、`src/splash_model/features.py`、`tests/test_model_features.py`（新增）
   - 本 Task 區塊「Codex 填寫」欄
 - 必讀檔案：
-  - `docs/superpowers/plans/2026-11-18-speed-model.md`：13–31（全域限制與 Review Focus）、68–101（Task 1 全文）
-  - `docs/superpowers/specs/2026-11-18-speed-model-design.md`：27–49（目標／反目標）、75–84（4.1 特徵）
+  - `docs/superpowers/plans/2026-11-18-speed-model.md`：13–31（全域限制與 Review Focus）、68–101（Task 1 全文；2026-11-18 規格檢查後已修訂 78–83、92、99）
+  - `docs/superpowers/specs/2026-11-18-speed-model-design.md`：27–45（目標／反目標）、75–86（4.1 特徵與觀察值）
   - `src/splash_sim/features.py`（全檔，37 行）、`tests/test_features.py`、`tests/test_render.py:9-20`（`geometry`／`render` 測試輔助）
   - `src/splash_sim/dataset.py:22-66`（`SceneOutput`、`simulate_single_drop`）、`:83-140`（答案 JSON／CSV 欄位、`generate_dataset`）
   - `src/splash_sim/imageio.py`（中文路徑 PNG 讀寫）
@@ -171,8 +171,8 @@
   - `splash_model` 單向依賴 `splash_sim`，不得反向匯入（來源：plan:18）。
   - 訓練相依只進 `train` 群組，不改 `splash_sim` 執行期相依（來源：plan:19）。
   - 影像讀寫一律用 `splash_sim.imageio`；檔案讀寫指定 UTF-8；錯誤訊息繁中並指出參數名稱（來源：plan:15 沿用前計畫 Global Constraints，`docs/superpowers/plans/2026-11-04-splash-simulator.md:13-24`）。
-  - 截斷（`truncated=True`）與完全遮蔽（遮罩為空）液滴排除並計數於 `df.attrs["excluded"]`（來源：plan:81）。
-  - 設定檔每個改動加註「規則擾動，Claude 判斷，非文獻值」；`provisional_train.yaml` 檔頭註明來源與「暫定、非實拍校正」（來源：plan:82；專案 CLAUDE.md 形狀規則出處要求）。
+  - 截斷（`truncated=True`）與完全遮蔽（遮罩為空）液滴排除並計數於 `df.attrs["excluded"]`（來源：plan:82）。
+  - 設定檔每個改動加註「規則擾動，Claude 判斷，非文獻值」；`provisional_train.yaml` 檔頭註明來源與「暫定、非實拍校正」（來源：plan:83；專案 CLAUDE.md 形狀規則出處要求）。
   - Step 6 量測寬度若因毛刺偏離答案 > 3%，停下回報數字，不放寬門檻（來源：testing-policy「不可盲目修改測試來通過」；plan Task 2 Step 4 同原則）。
   - 一次一個失敗測試 → 最小實作 → 通過（垂直切片）；局部只跑當前測試檔，收尾跑全套（來源：`~/.claude/policies/testing-policy.md`）。
 - 參考段落：
@@ -191,6 +191,7 @@
   - 開工：不適用 `review-animations`：無動畫。
   - 開工：不適用 `product-security-qa.md`：一般 Task，無登入、權限、付費、個資或對外輸入。
   - 開工：保持喚醒已經使用者核可並開啟（背景程序 PID 記於 `%TEMP%\splash-keepawake.pid`）。
+  - B3 規格檢查（2026-11-18，輸入 653,672 token）：Codex 指出 5 項：同表含答案與反目標字面衝突、缺量測方向欄、候選清單來源不一、排除歸類與計數、衛星量測範圍。皆為計畫內可逆修正，Claude 採 Codex 推薦直接修訂：答案可同表、防洩漏只查模型輸入 X；新增 OBSERVED_COLUMNS（obs_direction_deg、obs_center_mm_x/y，不入模型）；排除直接讀 truncated 與遮罩，優先序 truncated→occluded→unmeasurable；主體在 bbox+margin 量、衛星取整張遮罩同編號區塊。
   - 收尾：
 - 審查輪次：0 / 2
 - 審查結果：

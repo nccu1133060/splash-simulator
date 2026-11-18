@@ -76,9 +76,10 @@ tests/test_model_*.py
 - Produces：
   - `StainFeatures` 新增欄位（加在既有欄位之後）：`perimeter_mm: float`、`solidity: float`（輪廓面積／凸包面積）、`roughness: float`（輪廓周長／擬合橢圓周長，Ramanujan 近似）。既有欄位與行為不變。
   - `splash_model.features.FEATURE_COLUMNS: tuple[str, ...]`＝`meas_area_mm2, meas_width_mm, meas_length_mm, meas_aspect_ratio, meas_impact_angle_deg, meas_spine_count, meas_perimeter_mm, meas_solidity, meas_roughness, meas_satellite_count, meas_satellite_area_mm2, meas_satellite_max_dist_mm`。`meas_impact_angle_deg = degrees(arcsin(min(aspect, 1)))`。
+  - `OBSERVED_COLUMNS = ("obs_direction_deg", "obs_center_mm_x", "obs_center_mm_y")`：同樣只由遮罩量測（`measure_stain.direction_deg`、主體遮罩重心換算 mm，經 `splash_sim.geometry.px_to_mm`），**不送進速度模型**，供 M4／M5 回推使用。
   - `KEY_COLUMNS = ("scene_index", "drop_id")`；`TARGET_COLUMN = "speed_m_s"`；`TRUTH_COLUMNS = ("impact_angle_deg", "direction_deg", "center_mm_x", "center_mm_y", "impact_velocity_m_s_x", "impact_velocity_m_s_y", "impact_velocity_m_s_z", "diameter_mm")`。
-  - `measure_drop(instance_mask, satellite_mask, instance_id: int, bbox_px: tuple[int,int,int,int], *, margin_px: int = 60) -> dict[str, float]`：只用遮罩；衛星以 `satellite_mask == instance_id` 的連通區塊計數，距離為區塊重心到主體重心。
-  - `build_feature_table(dataset_dir: Path) -> pandas.DataFrame`：欄位依序為 `KEY_COLUMNS + FEATURE_COLUMNS + (TARGET_COLUMN,) + TRUTH_COLUMNS`，依 `(scene_index, drop_id)` 排序。排除 `truncated=True` 與遮罩為空（完全遮蔽）的液滴；量測失敗（輪廓不足 5 點）也排除並計數於 `df.attrs["excluded"]`（dict：`truncated`、`occluded`、`unmeasurable`）。
+  - `measure_drop(instance_mask, satellite_mask, instance_id: int, bbox_px: tuple[int,int,int,int], *, margin_px: int = 60) -> dict[str, float]`：只用遮罩。主體：在 `bbox_px` 往外擴 `margin_px`（裁到畫布內）的範圍取 `instance_mask == instance_id` 量測。衛星：取**整張** `satellite_mask == instance_id` 的全部連通區塊（衛星可能在主體外框之外；可用 `scipy.ndimage.find_objects` 先取該編號外框加速），計數、總面積，距離為區塊重心到主體重心的最大值；無衛星時三者皆為 0。回傳 `FEATURE_COLUMNS` 與 `OBSERVED_COLUMNS` 的全部鍵。
+  - `build_feature_table(dataset_dir: Path) -> pandas.DataFrame`：欄位依序為 `KEY_COLUMNS + FEATURE_COLUMNS + OBSERVED_COLUMNS + (TARGET_COLUMN,) + TRUTH_COLUMNS`，依 `(scene_index, drop_id)` 排序。排除規則直接讀答案 JSON 的 `truncated` 與遮罩（不讀 `candidate_index.csv`），每滴只歸入一類，優先序 `truncated` → `occluded`（遮罩為空）→ `unmeasurable`（輪廓不足 5 點等 `measure_stain` 的 `ValueError`）；計數於 `df.attrs["excluded"]`（dict 三鍵皆必有）。表中同時保存答案欄，防洩漏只檢查實際送進模型的 `X`（Step 10）。
 - 設定檔：`provisional_train.yaml` 內容等於 `datasets/expanded_public_trial_2500_20261111-105236/config_snapshot.yaml`，檔頭加中文註解說明來源與「暫定、非實拍校正」。另兩份以它為底，只改：`independent_test.yaml` → `seed: 20261118`、`output.n_scenes: 30`、`output.name: independent_test`；`rule_perturbed.yaml` → `seed: 20261119`、`n_scenes: 30`、`name: rule_perturbed`、`impact.spread_a: 1.05`、`impact.angle_bias_deg: 3.0`、`impact.spine_a: 0.1443`、`impact.spine_length_frac: [0.1, 0.35]`；每個改動加註「規則擾動，Claude 判斷，非文獻值」。
 
 - [ ] **Step 1：相依**：`pyproject.toml` 加 `[dependency-groups] train = ["xgboost", "pandas"]`；`uv sync --group train`；`.gitignore` 加 `runs/`。執行既有全套確認仍全綠（基準）。
@@ -88,9 +89,9 @@ tests/test_model_*.py
 - [ ] **Step 5：執行 → 調整（若需要）→ 執行。**
 - [ ] **Step 6：寫失敗測試 `tests/test_model_features.py::test_measure_drop_matches_geometry`**：`simulate_single_drop([0, 0, -3.0], 3.0, cfg)`，cfg 關閉 augment、`jitter_frac=0`；`meas_width_mm` 與該滴答案 `width_mm` 相對誤差 ≤ 3%；`meas_satellite_count` 等於答案 `satellite_count`（垂直 3 m/s 時答案非 0；若為 0 改用 4 m/s，測試內斷言前提成立）。
 - [ ] **Step 7：執行 → 實作 `measure_drop` → 執行。**
-- [ ] **Step 8：寫失敗測試 `test_feature_table_layout`**：`generate_dataset` 於 `tmp_path/"中文"` 產 2 張場景 → `build_feature_table` 欄位順序等於規格；列數 = 答案中 `truncated=False` 且非完全遮蔽的滴數；`excluded` 計數加總正確。
+- [ ] **Step 8：寫失敗測試 `test_feature_table_layout`**：`generate_dataset` 於 `tmp_path/"中文"` 產 2 張場景 → `build_feature_table` 欄位順序等於規格；列數 + `excluded` 三類加總 = 答案總滴數；`excluded["truncated"]` 等於答案中 `truncated=True` 的滴數；`obs_center_mm_*` 與答案 `center_mm` 差 ≤ 1 mm（無遮蔽液滴）。
 - [ ] **Step 9：執行 → 實作 `build_feature_table` → 執行。**
-- [ ] **Step 10：寫失敗測試 `test_feature_columns_whitelisted`**：公開函式 `assert_no_leakage(X: DataFrame)` 檢查模型輸入：欄位必須全部以 `meas_` 開頭且屬於 `FEATURE_COLUMNS`，否則丟中文 `ValueError` 並列出違規欄名。測試：正常特徵通過；加入 `width_mm`、`spine_count` 或 `speed_m_s` 任一欄都失敗。另斷言 `FEATURE_COLUMNS` 與 `TRUTH_COLUMNS ∪ {TARGET_COLUMN}` 交集為空。Task 3 訓練前呼叫此函式。
+- [ ] **Step 10：寫失敗測試 `test_feature_columns_whitelisted`**：公開函式 `assert_no_leakage(X: DataFrame)` 檢查模型輸入：欄位必須全部以 `meas_` 開頭且屬於 `FEATURE_COLUMNS`，否則丟中文 `ValueError` 並列出違規欄名。測試：正常特徵通過；加入 `width_mm`、`spine_count`、`speed_m_s` 或 `obs_direction_deg` 任一欄都失敗。另斷言 `FEATURE_COLUMNS` 與 `TRUTH_COLUMNS ∪ {TARGET_COLUMN}` 交集為空。Task 3 訓練前呼叫此函式。
 - [ ] **Step 11：執行 → 實作 `assert_no_leakage` → 執行。**
 - [ ] **Step 12：寫失敗測試 `test_feature_table_deterministic`**：同一資料集建兩次，`DataFrame.equals` 為真。執行 → 修正（若需要）→ 執行。
 - [ ] **Step 13：寫失敗測試 `test_model_configs_load`**：三份 `configs/model/*.yaml` 皆可 `load_config`；`independent_test` 與 `provisional_train` 只差 seed／n_scenes／name；`rule_perturbed` 只差規格列出的欄位（遞迴比對）。執行 → 新增設定檔 → 執行。
@@ -177,7 +178,7 @@ tests/test_model_*.py
   - `splash-model features --dataset D --out F.csv`
   - `splash-model fit --dataset D --out RUN_DIR [--seed 0] [--config C]`：建特徵表 → `split_scenes` → `tune` → 訓練 → 寫 `RUN_DIR/{model/, split.json, features_train.csv, metrics.json}`；`metrics.json["internal"]` 含 val／test 上 `model`、`b0`、`b1` 三法的 `speed_metrics`。`--config` 預設讀資料集內 `config_snapshot.yaml`，取得滴徑、物性與 `spread_a` 供 B0。
   - `splash-model evaluate --run RUN_DIR --dataset D --label NAME`：整個資料集當測試，結果寫入 `metrics.json["datasets"][NAME]`，同時寫 `predictions_NAME.csv`。
-  - `splash-model backtrack --run RUN_DIR --dataset D --label NAME`：每場景以候選液滴跑四種：`line`（直線法）、`true_speed`、`model_speed`（含不確定度權重）、`model_speed_gravity_only`；方向 γ 與 α 取量測值，**γ 的 180° 正負號以答案決定**（spec 非目標）；寫 `metrics.json["backtrack"][NAME]`：各法 `n_ok`、`n_failed`、XY／Z 誤差中位數與 P90（mm）、Z 偏差中位數；逐場景結果寫 `backtrack_NAME.csv`。
+  - `splash-model backtrack --run RUN_DIR --dataset D --label NAME`：每場景以候選液滴跑四種：`line`（直線法）、`true_speed`、`model_speed`（含不確定度權重）、`model_speed_gravity_only`；撞擊點取 `obs_center_mm_*`、方向 γ 取 `obs_direction_deg`、α 取 `meas_impact_angle_deg`，**γ 的 180° 正負號以答案 `direction_deg` 決定**（spec 非目標）；寫 `metrics.json["backtrack"][NAME]`：各法 `n_ok`、`n_failed`、XY／Z 誤差中位數與 P90（mm）、Z 偏差中位數；逐場景結果寫 `backtrack_NAME.csv`。
   - `splash-model report --run RUN_DIR`：由 `metrics.json` 產 `report.md`，含表格與 spec 1.1 的限制說明原文。
 - 錯誤：資料集不存在、缺 `index.csv`、模型資料夾不完整 → 中文訊息、exit 2。
 - 寫 `metrics.json` 用 `json.dumps(sort_keys=True, ensure_ascii=False, indent=2)`；不寫時間與絕對路徑。
