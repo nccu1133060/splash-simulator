@@ -151,62 +151,8 @@
 - 待驗證風險：`obs_center_mm_*` 取原始遮罩重心，真實資料 P95 誤差約 2.9 mm，留 M4 回推時評估。
 - 環境提醒：`%TEMP%\splash-sim-uv-python` 可能被 Windows 暫存清理清空，症狀 `No module named 'encodings'`；以 `uv python install 3.11.15 --reinstall`＋`uv sync --group train` 重建（需網路）。
 
-## Task M2：物理基準線與切分
-
-### Claude 填寫（交派與審查）
-
-- 負責人：Codex（實作）｜審查：Claude
-- 分支：task-m2-baseline-split（從 main f76e9d0 建立）
-- 風險等級：一般（原因：本機數值函式與資料切分；無登入、權限、付費、個資、對外輸入或資料結構變更）
-- 推理強度：中等
-- 需要網路：否（train 群組已安裝，2026-11-25 Claude 重建環境）
-- 檔案範圍：
-  - 新增 `src/splash_model/baseline.py`、`src/splash_model/split.py`
-  - 新增 `tests/test_model_baseline.py`、`tests/test_model_split.py`
-  - 不改其他檔案（含 `pyproject.toml`、`uv.lock`、`splash_sim/*`、`splash_model/features.py`）
-- 必讀檔案：
-  - `docs/superpowers/plans/2026-11-18-speed-model.md`：13–29（全域限制與 Review Focus）、107–130（Task 2 全文；2026-11-25 已修訂 114、123）
-  - `docs/superpowers/specs/2026-11-18-speed-model-design.md`：88–105（4.2 模型、4.3 切分）、124–128（驗收 1–3）
-  - `src/splash_sim/impact.py:47-57`（`literature_v1` 的 We、Re、Laan 公式）
-  - `tests/test_model_features.py:11-35`（`test_measure_drop_matches_geometry`：關閉 augment、jitter=0、`simulate_single_drop`→`measure_drop` 的寫法，可照抄做 Step 4）
-- 設計約束摘要（索引，不代替依規則必讀的技能與詳規原文）：
-  - `laan_spread_factor` 必須與 `literature_v1` 同公式、不含 jitter；相對誤差 < 1e-9（來源：plan:112、119）。
-  - 反解用 `scipy.optimize.brentq`，範圍 (0.01, 30) m/s，無解或輸入非有限回傳 `nan`，不丟例外（來源：plan:113、121；Review Focus 3，plan:27）。
-  - B0：`sin α = clip(meas_aspect_ratio, 0, 1)`，`v = v_n / sin α`；不合理的列為 `nan`，回傳長度等於列數（來源：plan:114，2026-11-25 修訂）。
-  - B0 只用 `meas_` 量測欄與呼叫端給的 `diameter_mm`、`liquid`、`spread_a`，不得讀答案欄（來源：plan:16 防洩漏）。
-  - Step 4 用 `configs/model/provisional_train.yaml`（毛刺依暫定設定），augment 全關、`impact.jitter_frac=0`；B0 相對誤差 < 5%。不通過就停下回報量測數字，不放寬門檻（來源：plan:122；spec:128）。Claude 2026-11-25 試算 12 組（暫定與 default × v{2,4} × α{30,60,90}）B0 誤差都在 ±0.5% 內。
-  - 切分以 `scene_index` 為單位，三集合互斥、各自排序、每集合至少 1 個場景，否則丟繁中 `ValueError` 並提到 `fractions`；同種子結果相同（來源：plan:17、116–117、124–126）。
-  - 錯誤訊息用繁中並指出參數名稱；`splash_sim` 不得匯入 `splash_model`（來源：plan:15、18）。
-  - 一次一個失敗測試 → 最小實作 → 通過；局部只跑當前測試檔，收尾跑全套（來源：`~/.claude/policies/testing-policy.md`）。
-- 參考段落：
-  - `src/splash_sim/config.py:37-40`（`LiquidConfig` 欄位）、`:53`（`spread_a` 預設 1.24）
-  - `src/splash_model/features.py:15-31`（欄位常數）
-- 施工階段：不分階段（預估 8 個紅綠循環，兩個小模組）
-- 驗收標準：
-  1. 計畫 Task 2 Step 1–8 的測試全部存在且通過；既有 133 項仍通過。
-  2. ξ = 0.01、ξ = 100 反解回傳 `nan`（2026-11-25 B3 修訂）；長寬比 1.02 與 1.0 結果相同；長寬比 0 或寬度 0 的列為 `nan`，整批不丟例外。
-  3. 暫定設定單滴 B0 相對誤差 < 5%（6 組）。
-  4. 100 場景切分互斥、完整、比例誤差 ≤ 1；2 個場景丟含 `fractions` 的繁中 `ValueError`。
-  5. 修改只在檔案範圍內。
-- 測試指令：局部 `uv run --group train pytest tests/<檔名> -q`｜全套 `uv run --group train pytest -q`｜lint：無｜型別檢查：無（每次 uv 設 `UV_CACHE_DIR=$env:TEMP\splash-sim-uv-cache`、`UV_PYTHON_INSTALL_DIR=$env:TEMP\splash-sim-uv-python`；pytest 加 `-p no:cacheprovider --basetemp=<TEMP 下新資料夾>`。遇 `No module named 'encodings'` 是暫存 Python 被清除，標「失敗」回報，不自行重裝）
-- Claude 檢查紀錄：
-  - 開工：已讀 `testing-policy.md` — 紅綠循環一次一個測試，不可盲目修改測試來通過。
-  - 開工：不適用 `frontend-codex.md`／`impeccable`：無畫面或終端介面。
-  - 開工：不適用 `review-animations`：無動畫。
-  - 開工：不適用 `product-security-qa.md`：一般 Task。
-  - 開工：工作區乾淨（已刪除 uv 產物 `src/splash_sim.egg-info/`）；M1 已合併 main；保持喚醒待使用者核可。
-  - B3 規格檢查（2026-11-25，2.53 分，輸入 384,996／快取 337,664 token）：Codex 指出 1 項矛盾，計畫 Step 3 的 ξ=0.1 在範圍內有解（約 0.0201 m/s）。Claude 驗算：ξ(0.01 m/s)=0.05067、ξ(30 m/s)=9.210，確認屬實。屬計畫內可逆的測試值修正，Claude 採 Codex 推薦，改為 ξ=0.01（plan:121、驗收 2）。
-  - 收尾：
-- 審查輪次：0 / 2
-- 審查結果：
-
-### Codex 填寫（施工）
-
-狀態：
-- 已完成階段：
-- 修改內容：
-- 測試指令與結果摘要：
-- 簡短 QA：
-- 教學重點：設計理由／替代方案／剩餘限制
-- 範圍外需求：
-- 退件回覆：
+## Task M2：物理基準線與切分（已審查通過，待使用者選擇收尾方式）
+- 分支 `task-m2-baseline-split` 已提交（2026-11-25）；首輪審查通過，無退件；全套 173 passed。
+- 完整交派、施工、審查與驗證紀錄：`docs/handoff-archive/2026-11-25-task-m2.md`。
+- 待使用者選擇：本機合併／保留分支（無遠端，無法開 PR）。合併 main 需使用者明說「合併 Task M2」。
+- 真實資料參考數字（測試集 397 列）：B0 相對誤差中位數 6.7%、P90 32.4%；B1 中位數 25.2%。M3 主模型以此為比較對象。
