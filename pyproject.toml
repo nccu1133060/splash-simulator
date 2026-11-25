@@ -19,6 +19,7 @@ splash-sim = "splash_sim.cli:main"
 
 [dependency-groups]
 dev = ["pytest"]
+train = ["xgboost", "pandas"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

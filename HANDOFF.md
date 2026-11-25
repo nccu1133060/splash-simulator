@@ -134,7 +134,7 @@
 
 | Task | 名稱 | 負責人 | 分支 | 檔案範圍 | 狀態 |
 |---|---|---|---|---|---|
-| M1 | 套件骨架與特徵表 | Codex | task-m1-features | pyproject.toml（train 群組）、uv.lock、.gitignore、configs/model/*.yaml、src/splash_sim/features.py、tests/test_features.py（只新增）、src/splash_model/{__init__,features}.py、tests/test_model_features.py | 施工中（半自動，2026-11-18 啟動） |
+| M1 | 套件骨架與特徵表 | Codex | task-m1-features | pyproject.toml（train 群組）、uv.lock、.gitignore、configs/model/*.yaml、src/splash_sim/features.py、tests/test_features.py（只新增）、src/splash_model/{__init__,features}.py、tests/test_model_features.py | 已提交分支，待批准合併 |
 | M2 | 物理基準線與切分 | Codex | task-m2-baseline-split | src/splash_model/{baseline,split}.py、tests/test_model_{baseline,split}.py | 未開始 |
 | M3 | 速度模型與指標 | Codex | task-m3-model | src/splash_model/{model,metrics}.py、tests/test_model_{model,metrics}.py | 未開始 |
 | M4 | 回推與交會 | Codex | task-m4-backtrack | src/splash_model/backtrack.py、tests/test_model_backtrack.py | 未開始 |
@@ -144,65 +144,9 @@
 - 驗收標準見計畫各 Task 與 spec 第 6 節。
 - 環境發現：2026-11-18 本機 `.venv` 指向的 `%TEMP%\splash-sim-uv-python\cpython-3.11.15` 已被清除，`uv run` 失敗；M1 開工先 `uv sync --group train` 重建。本輪未跑專案測試（只寫文件）。
 
-## Task M1：套件骨架與特徵表
-
-### Claude 填寫（交派與審查）
-
-- 負責人：Codex（實作）｜審查：Claude
-- 分支：task-m1-features（自 main b8a20ae）
-- 風險等級：一般（原因：本機資料處理；無登入、權限、付費、個資或對外輸入；新增的特徵表是檔案輸出格式，不是資料庫遷移）
-- 推理強度：中等
-- 需要網路：是（原因：`uv sync --group train` 下載 xgboost、pandas，並重建已被清除的 uv Python 3.11）
-- 檔案範圍：
-  - `pyproject.toml`（只加 `[dependency-groups] train`）、`uv.lock`、`.gitignore`（只加 `runs/`）
-  - `configs/model/provisional_train.yaml`、`configs/model/independent_test.yaml`、`configs/model/rule_perturbed.yaml`（新增）
-  - `src/splash_sim/features.py`（擴充欄位，既有行為不變）、`tests/test_features.py`（只新增測試）
-  - `src/splash_model/__init__.py`、`src/splash_model/features.py`、`tests/test_model_features.py`（新增）
-  - 本 Task 區塊「Codex 填寫」欄
-- 必讀檔案：
-  - `docs/superpowers/plans/2026-11-18-speed-model.md`：13–31（全域限制與 Review Focus）、68–101（Task 1 全文；2026-11-18 規格檢查後已修訂 78–83、92、99）
-  - `docs/superpowers/specs/2026-11-18-speed-model-design.md`：27–45（目標／反目標）、75–86（4.1 特徵與觀察值）
-  - `src/splash_sim/features.py`（全檔，37 行）、`tests/test_features.py`、`tests/test_render.py:9-20`（`geometry`／`render` 測試輔助）
-  - `src/splash_sim/dataset.py:22-66`（`SceneOutput`、`simulate_single_drop`）、`:83-140`（答案 JSON／CSV 欄位、`generate_dataset`）
-  - `src/splash_sim/imageio.py`（中文路徑 PNG 讀寫）
-  - 設定快照來源：`datasets/expanded_public_trial_2500_20261111-105236/config_snapshot.yaml`（ignored 目錄，唯讀）
-- 設計約束摘要（索引，不代替依規則必讀的技能與詳規原文）：
-  - 模型輸入只能是從遮罩量測、以 `meas_` 開頭且在 `FEATURE_COLUMNS` 白名單的欄位；答案欄位只能當目標或 TRUTH（來源：plan:16；spec:41-45 反目標）。
-  - `splash_model` 單向依賴 `splash_sim`，不得反向匯入（來源：plan:18）。
-  - 訓練相依只進 `train` 群組，不改 `splash_sim` 執行期相依（來源：plan:19）。
-  - 影像讀寫一律用 `splash_sim.imageio`；檔案讀寫指定 UTF-8；錯誤訊息繁中並指出參數名稱（來源：plan:15 沿用前計畫 Global Constraints，`docs/superpowers/plans/2026-11-04-splash-simulator.md:13-24`）。
-  - 截斷（`truncated=True`）與完全遮蔽（遮罩為空）液滴排除並計數於 `df.attrs["excluded"]`（來源：plan:82）。
-  - 設定檔每個改動加註「規則擾動，Claude 判斷，非文獻值」；`provisional_train.yaml` 檔頭註明來源與「暫定、非實拍校正」（來源：plan:83；專案 CLAUDE.md 形狀規則出處要求）。
-  - Step 6 量測寬度若因毛刺偏離答案 > 3%，停下回報數字，不放寬門檻（來源：testing-policy「不可盲目修改測試來通過」；plan Task 2 Step 4 同原則）。
-  - 一次一個失敗測試 → 最小實作 → 通過（垂直切片）；局部只跑當前測試檔，收尾跑全套（來源：`~/.claude/policies/testing-policy.md`）。
-- 參考段落：
-  - `src/splash_sim/config.py:49-90`（`ImpactConfig` 欄位，擾動設定用）、`:225-245`（`SimConfig`、`load_config`）
-- 施工階段：不分階段（預估 13 個紅綠循環，單一功能區塊）
-- 驗收標準：
-  1. 計畫 Task 1 的 Step 2–13 測試全部存在且通過；既有 101 項測試仍通過。
-  2. `assert_no_leakage` 對 `width_mm`、`spine_count`、`speed_m_s` 任一欄都丟中文 `ValueError`。
-  3. `build_feature_table` 欄位順序、排序、排除計數符合計畫；同資料集兩次結果相同。
-  4. 三份 `configs/model/*.yaml` 可載入，差異只在計畫列出的欄位。
-  5. 修改只在檔案範圍內；`splash_sim` 未匯入 `splash_model`。
-- 測試指令：局部 `uv run --group train pytest tests/<檔名> -q`｜全套 `uv run --group train pytest -q`｜lint：無｜型別檢查：無（Codex 沙盒需設 `UV_CACHE_DIR=$env:TEMP\splash-sim-uv-cache`、`UV_PYTHON_INSTALL_DIR=$env:TEMP\splash-sim-uv-python`；遇 `pytest-of-andyc` PermissionError 加 `-p no:cacheprovider --basetemp=<TEMP 下新資料夾>`）
-- Claude 檢查紀錄：
-  - 開工：已讀 `testing-policy.md` — 一次一個失敗測試、紅綠循環垂直切片，不為全綠放寬斷言。
-  - 開工：不適用 `frontend-codex.md`／`impeccable`：無畫面或終端介面變更（CLI 在 M5）。
-  - 開工：不適用 `review-animations`：無動畫。
-  - 開工：不適用 `product-security-qa.md`：一般 Task，無登入、權限、付費、個資或對外輸入。
-  - 開工：保持喚醒已經使用者核可並開啟（背景程序 PID 記於 `%TEMP%\splash-keepawake.pid`）。
-  - B3 規格檢查（2026-11-18，輸入 653,672 token）：Codex 指出 5 項：同表含答案與反目標字面衝突、缺量測方向欄、候選清單來源不一、排除歸類與計數、衛星量測範圍。皆為計畫內可逆修正，Claude 採 Codex 推薦直接修訂：答案可同表、防洩漏只查模型輸入 X；新增 OBSERVED_COLUMNS（obs_direction_deg、obs_center_mm_x/y，不入模型）；排除直接讀 truncated 與遮罩，優先序 truncated→occluded→unmeasurable；主體在 bbox+margin 量、衛星取整張遮罩同編號區塊。
-  - 收尾：
-- 審查輪次：0 / 2
-- 審查結果：
-
-### Codex 填寫（施工）
-
-狀態：
-- 已完成階段：
-- 修改內容：
-- 測試指令與結果摘要：
-- 簡短 QA：
-- 教學重點：設計理由／替代方案／剩餘限制
-- 範圍外需求：
-- 退件回覆：
+## Task M1：套件骨架與特徵表（已審查通過，待使用者選擇收尾方式）
+- 分支 `task-m1-features` 已提交（2026-11-25）；審查第 1 輪退件（建表效能、細線遮罩除以零）修正後通過；全套 133 passed。
+- 完整交派、施工、審查與驗證紀錄：`docs/handoff-archive/2026-11-25-task-m1.md`。
+- 待使用者選擇：本機合併／保留分支（無遠端，無法開 PR）。合併 main 需使用者明說「合併 Task M1」。
+- 待驗證風險：`obs_center_mm_*` 取原始遮罩重心，真實資料 P95 誤差約 2.9 mm，留 M4 回推時評估。
+- 環境提醒：`%TEMP%\splash-sim-uv-python` 可能被 Windows 暫存清理清空，症狀 `No module named 'encodings'`；以 `uv python install 3.11.15 --reinstall`＋`uv sync --group train` 重建（需網路）。

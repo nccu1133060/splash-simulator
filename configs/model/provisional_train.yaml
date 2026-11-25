@@ -1,0 +1,114 @@
+# 來源：datasets/expanded_public_trial_2500_20261111-105236/config_snapshot.yaml
+# 暫定、非實拍校正
+air:
+  density_kg_m3: 1.204
+  drag_enabled: true
+  viscosity_pa_s: 1.81e-05
+augment:
+  blur:
+    enabled: true
+    sigma_px:
+    - 0.0
+    - 1.2
+  jpeg:
+    enabled: true
+    quality:
+    - 75
+    - 95
+  lighting:
+    enabled: true
+    strength: 0.03
+  noise:
+    enabled: true
+    std:
+    - 1.0
+    - 4.0
+  paper_texture:
+    enabled: true
+    strength: 1.5
+impact:
+  angle_bias_deg: 0.0
+  bleed_mm:
+    coated: 0.05
+    copy: 0.4
+  jitter_frac: 0.05
+  paper: coated
+  ruleset: literature_v1
+  satellite_max: 8
+  satellite_min_weber: 150.0
+  satellite_per_weber: 0.02
+  satellite_size_frac:
+  - 0.03
+  - 0.12
+  spine_a: 0.04
+  spine_b: 0.5
+  spine_c: 0.25
+  spine_front_kappa: 3.0
+  spine_length_frac:
+  - 0.015
+  - 0.06
+  spine_min_weber: 10.0
+  spread_a: 1.24
+  tail_coeff: 0.4
+liquid:
+  density_kg_m3: 998.0
+  surface_tension_n_m: 0.072
+  viscosity_pa_s: 0.001
+output:
+  crop_size_px: 384
+  n_scenes: 96
+  name: expanded_public_trial_2500
+render:
+  draw_satellites: true
+  draw_spines: true
+  draw_tail: true
+  dye_opacity:
+  - 0.6
+  - 0.9
+  dye_rgb:
+  - 190
+  - 30
+  - 45
+  paper_rgb:
+  - 245
+  - 245
+  - 240
+scene:
+  diameter:
+    fixed_mm: 3.0
+    mode: fixed
+    range_mm:
+    - 0.3
+    - 4.0
+  mode: spray
+  single:
+    impact_angle_deg:
+    - 10.0
+    - 90.0
+    speed_m_s:
+    - 0.5
+    - 5.0
+  spray:
+    cone_half_angle_deg: 30.0
+    drops_launched:
+    - 30
+    - 80
+    launch_speed_m_s:
+    - 0.5
+    - 5.0
+    max_resample: 50
+    min_drops_on_paper: 9
+    min_impact_angle_deg: 10.0
+    source_height_m:
+    - 0.1
+    - 0.3
+    source_offset_m: 0.3
+  vertical_drop:
+    grid:
+    - 3
+    - 4
+    heights_m:
+    - 0.1
+    - 0.2
+    - 0.3
+seed: 20261112
