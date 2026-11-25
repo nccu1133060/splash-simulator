@@ -111,7 +111,7 @@ tests/test_model_*.py
 - Produces：
   - `laan_spread_factor(normal_speed_m_s: float, diameter_mm: float, liquid, spread_a: float) -> float`：與 `splash_sim.impact.literature_v1` 同一公式（不含 jitter）。
   - `invert_normal_speed(spread_factor: float, diameter_mm: float, liquid, spread_a: float, *, bounds_m_s=(0.01, 30.0)) -> float`：`scipy.optimize.brentq`；無解回傳 `nan`。
-  - `physics_baseline(df, *, diameter_mm: float, liquid, spread_a: float) -> numpy.ndarray`：`ξ = meas_width_mm / diameter_mm` → `v_n` → `v = v_n / sin(meas_impact_angle_deg)`。
+  - `physics_baseline(df, *, diameter_mm: float, liquid, spread_a: float) -> numpy.ndarray`：`ξ = meas_width_mm / diameter_mm` → `v_n`（`invert_normal_speed`）；`sin α = clip(meas_aspect_ratio, 0, 1)`（Review Focus 3，略大於 1 當 90°）→ `v = v_n / sin α`。`sin α ≤ 0`、寬度非正或非有限、反解無解時該列為 `nan`，不丟例外；回傳長度等於 `len(df)`。（2026-11-25 Claude 修訂：原寫用 `meas_impact_angle_deg`，與 Step 5 測長寬比夾值不一致；兩者數學上等價。）
   - `constant_baseline(train_speeds) -> Callable[[DataFrame], ndarray]`（訓練集平均）。
   - `split_scenes(scene_ids, *, fractions=(0.70, 0.15, 0.15), seed: int) -> dict[str, list[int]]`，鍵 `train`／`val`／`test`，各集合排序；每集合至少 1 個場景，否則丟中文 `ValueError`。
   - `apply_split(df, split) -> dict[str, DataFrame]`。
@@ -120,7 +120,7 @@ tests/test_model_*.py
 - [ ] **Step 2：寫失敗測試 `test_invert_roundtrip`**：正算後反解，誤差 < 1e-6 m/s。執行 → 實作 → 執行。
 - [ ] **Step 3：寫失敗測試 `test_invert_out_of_range_is_nan`**：ξ = 0.1 與 ξ = 100 回傳 `nan`，不丟例外。執行 → 實作 → 執行。
 - [ ] **Step 4：寫失敗測試 `test_physics_baseline_on_clean_single_drops`**（spec 驗收 3）：速度 {2, 4} m/s × 撞擊角 {30, 60, 90}°，augment 關閉、`jitter_frac=0`、毛刺依暫定設定；`simulate_single_drop` → Task 1 `measure_drop` → B0，相對誤差 < 5%。**若因毛刺使量測 W 偏大而不通過，停下回報量測數字，不放寬門檻。**執行 → 實作 → 執行。
-- [ ] **Step 5：寫失敗測試 `test_aspect_above_one_clipped`**：`meas_aspect_ratio = 1.02` 時 B0 回傳有限值（當作 90°）。執行 → 實作 → 執行。
+- [ ] **Step 5：寫失敗測試 `test_aspect_above_one_clipped`**：其餘欄位正常、`meas_aspect_ratio = 1.02` 時 B0 回傳有限值且等於同列 `meas_aspect_ratio = 1.0` 的結果（當作 90°）；另一列 `meas_aspect_ratio = 0` 或 `meas_width_mm = 0` 回傳 `nan`，整批不丟例外。執行 → 實作 → 執行。
 - [ ] **Step 6：寫失敗測試 `test_split_disjoint_by_scene`**：100 個場景編號 → 三集合互斥、聯集完整、比例誤差 ≤ 1 個場景；`apply_split` 後每個 DataFrame 的 `scene_index` 只屬於該集合。執行 → 實作 → 執行。
 - [ ] **Step 7：寫失敗測試 `test_split_deterministic_and_seeded`**：同種子相同、不同種子不同。執行 → 實作 → 執行。
 - [ ] **Step 8：寫失敗測試 `test_split_too_few_scenes`**：2 個場景 → 中文 `ValueError` 提到 `fractions`。執行 → 實作 → 執行。
