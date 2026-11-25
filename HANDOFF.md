@@ -198,6 +198,7 @@
   - 開工：不適用 `frontend-codex.md`／`impeccable`／`review-animations`：無畫面、無動畫。
   - 開工：不適用 `product-security-qa.md`：一般 Task。
   - 開工：工作區乾淨；M2 已合併 main。計畫內可逆修訂：`XGBRegressor`→原生 API（不加 scikit-learn）、補 `speed_metrics` 定義（plan:20、136–137）。保持喚醒待使用者核可。
+  - B3 規格檢查（2026-11-25，1.6 分，輸入 312,332／快取 238,336 token）：Codex 回覆「規格檢查：無問題」。
   - 收尾：
 - 審查輪次：0 / 2
 - 審查結果：
