@@ -118,7 +118,7 @@ tests/test_model_*.py
 
 - [ ] **Step 1：寫失敗測試 `test_spread_matches_simulator`**：v_n ∈ {1, 2, 4} m/s，`laan_spread_factor` 與 `literature_v1`（`jitter_frac=0`）回傳的 `spread_factor` 相對誤差 < 1e-9。執行 → 實作 → 執行。
 - [ ] **Step 2：寫失敗測試 `test_invert_roundtrip`**：正算後反解，誤差 < 1e-6 m/s。執行 → 實作 → 執行。
-- [ ] **Step 3：寫失敗測試 `test_invert_out_of_range_is_nan`**：ξ = 0.1 與 ξ = 100 回傳 `nan`，不丟例外。執行 → 實作 → 執行。
+- [ ] **Step 3：寫失敗測試 `test_invert_out_of_range_is_nan`**：ξ = 0.01 與 ξ = 100 回傳 `nan`（2026-11-25 修訂：原 0.1 對應約 0.020 m/s，仍在範圍內有解；範圍 0.01–30 m/s 對應 ξ 約 0.0507–9.21），不丟例外。執行 → 實作 → 執行。
 - [ ] **Step 4：寫失敗測試 `test_physics_baseline_on_clean_single_drops`**（spec 驗收 3）：速度 {2, 4} m/s × 撞擊角 {30, 60, 90}°，augment 關閉、`jitter_frac=0`、毛刺依暫定設定；`simulate_single_drop` → Task 1 `measure_drop` → B0，相對誤差 < 5%。**若因毛刺使量測 W 偏大而不通過，停下回報量測數字，不放寬門檻。**執行 → 實作 → 執行。
 - [ ] **Step 5：寫失敗測試 `test_aspect_above_one_clipped`**：其餘欄位正常、`meas_aspect_ratio = 1.02` 時 B0 回傳有限值且等於同列 `meas_aspect_ratio = 1.0` 的結果（當作 90°）；另一列 `meas_aspect_ratio = 0` 或 `meas_width_mm = 0` 回傳 `nan`，整批不丟例外。執行 → 實作 → 執行。
 - [ ] **Step 6：寫失敗測試 `test_split_disjoint_by_scene`**：100 個場景編號 → 三集合互斥、聯集完整、比例誤差 ≤ 1 個場景；`apply_split` 後每個 DataFrame 的 `scene_index` 只屬於該集合。執行 → 實作 → 執行。
