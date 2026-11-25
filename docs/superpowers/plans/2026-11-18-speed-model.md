@@ -17,7 +17,7 @@
 - **切分**：以 `scene_index` 為單位；同一場景只能在一個集合。
 - `splash_model` 不得被 `splash_sim` 匯入（單向依賴）。
 - 訓練相依只放 `[dependency-groups] train`，`splash_sim` 的執行期相依不變。
-- 可重現：同設定、同種子，`metrics.json` 逐位元組相同；XGBoost 固定 `random_state`、`n_jobs=1`、`tree_method="hist"`。
+- 可重現：同設定、同種子，`metrics.json` 逐位元組相同；XGBoost 固定 `seed`、`nthread=1`、`tree_method="hist"`（原生 API 名稱，2026-11-25 修訂；即 sklearn 介面的 `random_state`、`n_jobs`）。
 - 不需要 GPU；全流程在一般筆電 10 分鐘內。
 
 ## Review Focus
@@ -133,8 +133,8 @@ tests/test_model_*.py
 
 **Interfaces：**
 - Produces：
-  - `metrics.speed_metrics(y_true, q10, q50, q90, impact_angle_deg) -> dict`：鍵 `n`、`n_nan`、`mae_m_s`、`median_rel_err`、`coverage_80`（`q10 ≤ y ≤ q90` 比例）、`groups`：`vertical`（α ≥ 75°）、`oblique`（α < 75°）、`speed_low`（< 2.5）、`speed_mid`（2.5–4）、`speed_high`（≥ 4），各含 `n`、`mae_m_s`、`median_rel_err`。點估計為 `nan` 的列不計入誤差、計入 `n_nan`。無區間的方法（B0、B1）傳 `q10 = q90 = None`，`coverage_80` 為 `None`。數值四捨五入至 6 位。
-  - `model.SpeedModel(params: dict | None = None, seed: int = 0)`：`fit(X_train, y_train, X_val, y_val) -> SpeedModel`（三個 `XGBRegressor(objective="reg:quantileerror", quantile_alpha=q)`，`early_stopping_rounds=50`，驗證集監控）；`predict(X) -> DataFrame[q10, q50, q90]`（逐列排序保證單調）；`save(dir)`／`classmethod load(dir)`（每個分位數一個 `.json` ＋ `meta.json` 存特徵欄位順序與參數）。
+  - `metrics.speed_metrics(y_true, q10, q50, q90, impact_angle_deg) -> dict`：鍵 `n`、`n_nan`、`mae_m_s`、`median_rel_err`、`coverage_80`（`q10 ≤ y ≤ q90` 比例）、`groups`：`vertical`（α ≥ 75°）、`oblique`（α < 75°）、`speed_low`（< 2.5）、`speed_mid`（2.5–4）、`speed_high`（≥ 4），各含 `n`、`mae_m_s`、`median_rel_err`。點估計為 `nan` 的列不計入誤差、計入 `n_nan`。無區間的方法（B0、B1）傳 `q10 = q90 = None`，`coverage_80` 為 `None`。數值四捨五入至 6 位。（2026-11-25 Claude 補定義：`n` 為總列數；`mae_m_s = mean(|q50−y|)`、`median_rel_err = median(|q50−y|/y)`，都只算 `q50` 有限的列；`coverage_80` 也只算這些列；分組依**答案** `y_true` 與 `impact_angle_deg`（評估用，不進模型），速度區間為 `[0, 2.5)`、`[2.5, 4)`、`[4, ∞)`；分組或整體沒有可計算列時 `mae_m_s`、`median_rel_err`、`coverage_80` 為 `None`；回傳值都是 Python 原生型別，可直接 `json.dumps`。）
+  - `model.SpeedModel(params: dict | None = None, seed: int = 0)`：`fit(X_train, y_train, X_val, y_val) -> SpeedModel`。用 **XGBoost 原生 API**：三個分位數各一次 `xgboost.train`，參數 `objective="reg:quantileerror"`、`quantile_alpha=q`、`seed`、`nthread=1`、`tree_method="hist"`，`num_boost_round=n_estimators`、`early_stopping_rounds=50`、`evals=[(驗證集 DMatrix, "val")]`、`verbose_eval=False`。（2026-11-25 Claude 修訂：原寫 `XGBRegressor`，但 xgboost 3.2.0 的 sklearn 介面需要另裝 scikit-learn，`train` 群組沒有。改用原生 API 不新增相依，演算法相同。Claude 原型：人造資料 4 組 grid 涵蓋率 0.71–0.78、MAE 比 0.31–0.32，存讀後預測相同，`best_iteration` 保留。）`predict(X) -> DataFrame[q10, q50, q90]`：以 `iteration_range=(0, best_iteration+1)` 預測，逐列排序保證單調，索引等於 `X.index`。`save(dir)`／`classmethod load(dir)`：每個分位數 `Booster.save_model("q10.json")` 等三檔，加上 `meta.json`（UTF-8，存特徵欄位順序、參數、seed、各分位數 best_iteration）。
   - `model.tune(X_train, y_train, X_val, y_val, *, grid, seed) -> dict`：在 `grid`（預設 `max_depth ∈ {3, 5}`、`learning_rate ∈ {0.05, 0.1}`、`n_estimators=2000` 配早停）以中位數模型驗證 MAE 選最佳。
   - `fit` 前呼叫 Task 1 `assert_no_leakage`；`X` 欄位必須等於 `FEATURE_COLUMNS`，否則中文 `ValueError`。
 
