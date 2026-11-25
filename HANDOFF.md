@@ -157,59 +157,8 @@
 - 使用者 2026-11-25 說「合併 Task M2」：main 快轉至 9b264d8，main 全測 173 passed in 62.63s，exit 0；無遠端、無部署。
 - 真實資料參考數字（測試集 397 列）：B0 相對誤差中位數 6.7%、P90 32.4%；B1 中位數 25.2%。M3 主模型以此為比較對象。
 
-## Task M3：速度模型與指標
-
-### Claude 填寫（交派與審查）
-
-- 負責人：Codex（實作）｜審查：Claude
-- 分支：task-m3-model（從 main 9b264d8 建立）
-- 風險等級：一般（原因：本機模型訓練與指標計算；無登入、權限、付費、個資、對外輸入；模型檔是本機輸出，不是資料庫結構）
-- 推理強度：中等
-- 需要網路：否（xgboost 3.2.0、pandas 已在 train 群組；**不新增相依**）
-- 檔案範圍：
-  - 新增 `src/splash_model/model.py`、`src/splash_model/metrics.py`
-  - 新增 `tests/test_model_model.py`、`tests/test_model_metrics.py`
-  - 不改其他檔案（含 `pyproject.toml`、`uv.lock`、`splash_model/{features,baseline,split}.py`）
-- 必讀檔案：
-  - `docs/superpowers/plans/2026-11-18-speed-model.md`：13–29（全域限制，2026-11-25 修訂 20）、132–150（Task 3 全文，2026-11-25 修訂 136–137）
-  - `docs/superpowers/specs/2026-11-18-speed-model-design.md`：88–93（4.2 模型）、107–112（4.4 指標）
-  - `src/splash_model/features.py:15-31`（`FEATURE_COLUMNS` 等常數）、`:124-130`（`assert_no_leakage`）
-- 設計約束摘要（索引，不代替依規則必讀的技能與詳規原文）：
-  - 用 XGBoost **原生 API**（`xgboost.train`／`DMatrix`／`Booster`），不用 `XGBRegressor`：sklearn 介面需要 scikit-learn，`train` 群組沒有；不得新增相依（來源：plan:137，2026-11-25 修訂；plan:19）。
-  - 三個分位數 0.1／0.5／0.9 各訓練一個 Booster，`objective="reg:quantileerror"`、早停 50、驗證集監控；預測用 `iteration_range=(0, best_iteration+1)`，逐列排序保證 `q10 ≤ q50 ≤ q90`（來源：plan:137）。
-  - 可重現：`seed`、`nthread=1`、`tree_method="hist"`；同種子兩次預測 `array_equal`（來源：plan:20、146）。
-  - `fit` 先呼叫 `assert_no_leakage`，且 `X` 欄位（含順序）必須等於 `FEATURE_COLUMNS`，否則繁中 `ValueError`（來源：plan:139、147）。`predict` 的欄位也照同一規則檢查。
-  - 存讀：`q10.json`／`q50.json`／`q90.json`＋UTF-8 `meta.json`；中文路徑可用；讀回預測 `array_equal`（來源：plan:137、145）。
-  - `speed_metrics` 的定義以 plan:136 為準（2026-11-25 補：`n` 是總列數；誤差與涵蓋率只算 `q50` 有限的列；分組依答案速度與答案撞擊角；速度區間 `[0,2.5)`、`[2.5,4)`、`[4,∞)`；沒有可算列時為 `None`；回傳 Python 原生型別、6 位小數）。答案欄只用於評估，不進模型（來源：plan:16）。
-  - `tune` 只用中位數模型的驗證 MAE 選參數；預設 grid `max_depth ∈ {3,5}` × `learning_rate ∈ {0.05,0.1}`、`n_estimators=2000`；回傳 grid 成員（來源：plan:138、148）。
-  - 錯誤訊息用繁中並指出參數名稱；一次一個失敗測試 → 最小實作 → 通過（來源：plan:15；`~/.claude/policies/testing-policy.md`）。
-- 參考段落：
-  - Claude 原型（2026-11-25，scratchpad 不入庫）：人造資料（600 訓練／200 驗證／300 保留，`y = 2 + 0.3·meas_width_mm + N(0, 0.3)`，其餘特徵標準常態）4 組 grid：涵蓋率 0.710–0.783、MAE／常數 MAE 0.31–0.32，每組 0.6–2.0 s；`Booster.save_model`→`load_model` 後 `best_iteration` 保留、預測相同。
-- 施工階段：不分階段（預估 8 個紅綠循環）
-- 驗收標準：
-  1. 計畫 Task 3 Step 1–8 的測試全部存在且通過；既有 173 項仍通過。
-  2. 人造資料：模型中位數 MAE < 常數基準線的 50%；保留集涵蓋率在 [0.6, 0.95]；每列分位數單調。
-  3. 同種子訓練兩次、存到 `tmp_path/"中文"` 再讀回，預測都 `array_equal`。
-  4. `X` 多一欄 `width_mm` 時丟繁中 `ValueError`；`tune` 回傳 grid 成員。
-  5. 修改只在檔案範圍內；未改 `pyproject.toml`／`uv.lock`。
-- 測試指令：局部 `uv run --group train pytest tests/<檔名> -q`｜全套 `uv run --group train pytest -q`｜lint：無｜型別檢查：無（每次 uv 設 `UV_CACHE_DIR=$env:TEMP\splash-sim-uv-cache`、`UV_PYTHON_INSTALL_DIR=$env:TEMP\splash-sim-uv-python`；pytest 加 `-p no:cacheprovider --basetemp=<TEMP 下新資料夾>`。遇 `No module named 'encodings'` 是暫存 Python 被清除，標「失敗」回報，不自行重裝）
-- Claude 檢查紀錄：
-  - 開工：已讀 `testing-policy.md` — 紅綠循環一次一個測試，不可盲目修改測試來通過。
-  - 開工：不適用 `frontend-codex.md`／`impeccable`／`review-animations`：無畫面、無動畫。
-  - 開工：不適用 `product-security-qa.md`：一般 Task。
-  - 開工：工作區乾淨；M2 已合併 main。計畫內可逆修訂：`XGBRegressor`→原生 API（不加 scikit-learn）、補 `speed_metrics` 定義（plan:20、136–137）。保持喚醒待使用者核可。
-  - B3 規格檢查（2026-11-25，1.6 分，輸入 312,332／快取 238,336 token）：Codex 回覆「規格檢查：無問題」。
-  - 收尾：
-- 審查輪次：0 / 2
-- 審查結果：
-
-### Codex 填寫（施工）
-
-狀態：
-- 已完成階段：
-- 修改內容：
-- 測試指令與結果摘要：
-- 簡短 QA：
-- 教學重點：設計理由／替代方案／剩餘限制
-- 範圍外需求：
-- 退件回覆：
+## Task M3：速度模型與指標（已審查通過，待使用者選擇收尾方式）
+- 分支 `task-m3-model` 已提交（2026-11-25）；首輪審查通過，無退件；全套 183 passed。
+- 完整交派、施工、審查與驗證紀錄：`docs/handoff-archive/2026-11-25-task-m3.md`。
+- 待使用者選擇：本機合併／保留分支（無遠端，無法開 PR）。合併 main 需使用者明說「合併 Task M3」。
+- 真實資料預覽（非正式成績，測試集 397 列）：AI 相對誤差中位數 3.45%、80% 區間涵蓋 73.6%；B0 6.72%；B1 25.2%。
